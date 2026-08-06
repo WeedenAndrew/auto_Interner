@@ -1,13 +1,13 @@
 # Auto Interner
 
-A local-first, AI-assisted internship discovery and resume-tailoring pipeline designed
+A local, AI-assisted internship discovery and resume-tailoring pipeline designed
 for one user on a Raspberry Pi. Auto Interner will find unseen listings, conservatively
 screen hard disqualifiers, prevent duplicate work, and create truthfully tailored DOCX
 resumes for human review. It will not submit applications automatically.
 
-> **Project status:** Phase 6 complete orchestration is complete. The repository
+> **Project status:** Phase 6 orchestration is complete. The repository
 > includes validated live source retrieval, protected posting fetches, deterministic
-> screening, portable output-path planning, current-cycle six-calendar-month role
+> screening, portable output-path planning, current cycle six-month role
 > deduplication, a strict provider-neutral model boundary with an Anthropic adapter,
 > PII-separated truthfulness validation, template-preserving DOCX generation,
 > crash-aware reconciled state, non-overlapping run coordination, run summaries and
@@ -28,7 +28,7 @@ resumes for human review. It will not submit applications automatically.
 
 Configuration points to the public
 [SimplifyJobs Summer 2027 Internships](https://github.com/SimplifyJobs/Summer2027-Internships)
-repository and its machine-readable snapshot on the upstream `dev` branch. The default
+repository and its readable snapshot on the upstream `dev` branch. The default
 source is a shallow fetch into a private bare Git cache. Each check resolves one fixed
 commit and reads only the configured JSON blob without checkout or execution. If the
 commit matches the last successfully processed commit, a later polling orchestrator can
@@ -214,14 +214,6 @@ Windows and Linux. The default suite makes no live network, browser, or model ca
 - [Raspberry Pi deployment](docs/raspberry-pi.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
-
-## Privacy
-
-Do not commit `.env`, `runtime/data`, `runtime/state`, a real resume, generated
-applications, or browser profiles. Tests must use fictional identities and sanitized
-posting excerpts. Model requests and logs must exclude contact information, API keys,
-full resume contents, and complete posting bodies unless a narrowly scoped adapter
-explicitly requires sanitized content.
 
 ## License
 
