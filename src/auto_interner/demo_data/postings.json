@@ -1,0 +1,14 @@
+{
+  "fixture-clearance": {
+    "status": "success",
+    "text": "Candidates must be able to obtain and maintain a security clearance."
+  },
+  "fixture-pass": {
+    "status": "success",
+    "text": "Build reliable services with Python and collaborate with a small platform team."
+  },
+  "fixture-retry": {
+    "status": "retryable_failure",
+    "failure_reason": "fictional posting endpoint timed out"
+  }
+}

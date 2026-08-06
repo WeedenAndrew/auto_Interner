@@ -1,0 +1,97 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auto-interner"
+version = "0.1.0"
+description = "A privacy-conscious, AI-assisted internship and resume-tailoring pipeline."
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+authors = [{ name = "Andrew Weeden" }]
+license = "MIT"
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+]
+dependencies = ["python-docx==1.2.0"]
+
+[project.optional-dependencies]
+dev = [
+  "mypy==1.17.1",
+  "pytest==8.4.1",
+  "pytest-cov==6.2.1",
+  "ruff==0.12.9",
+]
+browser = ["selenium==4.46.0"]
+
+[project.scripts]
+auto-interner = "auto_interner.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+auto_interner = ["py.typed", "demo_data/*.json", "demo_data/*.docx"]
+
+[tool.pytest.ini_options]
+addopts = """
+-ra
+--strict-config
+--strict-markers
+-m "not live and not slow and not soak and not arm64"
+"""
+testpaths = ["tests"]
+markers = [
+  "unit: isolated pure-function or class tests",
+  "component: complete module tests with local fakes",
+  "contract: adapter and schema boundary tests",
+  "integration: tests of multiple local components",
+  "e2e: complete offline pipeline tests",
+  "acceptance: user-visible workflow tests",
+  "security: security behavior tests",
+  "performance: performance budget tests",
+  "reliability: crash and recovery tests",
+  "privacy: privacy boundary tests",
+  "portability: cross-platform behavior tests",
+  "observability: log and summary tests",
+  "live: opt-in external service tests",
+  "browser: tests requiring Chromium",
+  "arm64: tests requiring an arm64 target",
+  "slow: tests excluded from the default suite",
+  "soak: long-running reliability tests",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["auto_interner"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_covered = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["auto_interner"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "SIM", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

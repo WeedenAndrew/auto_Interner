@@ -1,0 +1,47 @@
+[
+  {
+    "id": "fixture-clearance",
+    "company_name": "Nebula Dynamics",
+    "title": "Security Engineering Intern",
+    "url": "https://example.invalid/jobs/fixture-clearance",
+    "locations": ["Boulder, CO"],
+    "active": true,
+    "source": "offline-demo"
+  },
+  {
+    "id": "fixture-non-us",
+    "company_name": "Harbor Systems",
+    "title": "Software Intern",
+    "url": "https://example.invalid/jobs/fixture-non-us",
+    "locations": ["London, United Kingdom"],
+    "active": true,
+    "source": "offline-demo"
+  },
+  {
+    "id": "fixture-pass",
+    "company_name": "Pine Labs",
+    "title": "Platform Engineering Intern",
+    "url": "https://example.invalid/jobs/fixture-pass",
+    "locations": ["Remote in US"],
+    "active": true,
+    "source": "offline-demo"
+  },
+  {
+    "id": "fixture-retry",
+    "company_name": "Orbit Works",
+    "title": "Data Engineering Intern",
+    "url": "https://example.invalid/jobs/fixture-retry",
+    "locations": ["Austin, TX"],
+    "active": true,
+    "source": "offline-demo"
+  },
+  {
+    "id": "fixture-inactive",
+    "company_name": "Cedar Robotics",
+    "title": "Robotics Intern",
+    "url": "https://example.invalid/jobs/fixture-inactive",
+    "locations": ["Seattle, WA"],
+    "active": false,
+    "source": "offline-demo"
+  }
+]

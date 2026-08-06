@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+build/
+
+# Local environments and secrets
+.venv/
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Private runtime data. Keep only runtime/README.md tracked.
+runtime/*
+!runtime/README.md
+
+# Generated personal documents and local browser data
+*.docx
+!tests/fixtures/**/*.docx
+!src/auto_interner/demo_data/*.docx
+*.pdf
+browser-profile/
