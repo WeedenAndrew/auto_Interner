@@ -212,8 +212,6 @@ Windows and Linux. The default suite makes no live network, browser, or model ca
 - [Phase 6 traceability](docs/phase-6-traceability.md)
 - [Phase 7 traceability](docs/phase-7-traceability.md)
 - [Raspberry Pi deployment](docs/raspberry-pi.md)
-- [Contributing](CONTRIBUTING.md)
-- [Security policy](SECURITY.md)
 
 ## License
 
