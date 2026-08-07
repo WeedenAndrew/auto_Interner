@@ -1,9 +1,9 @@
 # Auto Interner
 
-A local, AI-assisted internship discovery and resume-tailoring pipeline designed
+A local, AI-assisted internship discovery and resume tailoring pipeline designed
 for one user on a Raspberry Pi. Auto Interner will find unseen listings, conservatively
 screen hard disqualifiers, prevent duplicate work, and create truthfully tailored DOCX
-resumes for human review. It will not submit applications automatically.
+resumes for human review.
 
 > **Project status:** Phase 6 orchestration is complete. The repository
 > includes validated live source retrieval, protected posting fetches, deterministic
@@ -47,7 +47,7 @@ ANTHROPIC_MODEL=<model ID available to the account>
 Populate `ANTHROPIC_API_KEY` only in the ignored local `.env` file.
 Set `ANTHROPIC_MODEL` to any compatible model ID available to the account without
 modifying source code. The adapter forces a strict client-tool response and applies the
-same exact schema again locally. Its interface is provider-neutral so another provider
+same schema again locally. Its interface is provider-neutral so another provider
 can be added without changing screening policy; Anthropic is the only live provider
 implemented today.
 See the local [configuration reference](docs/configuration.md).
