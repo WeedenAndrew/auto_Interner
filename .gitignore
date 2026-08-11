@@ -1,42 +1,77 @@
-# Python
+# Python bytecode and packaging
 __pycache__/
 *.py[cod]
+*$py.class
 *.egg-info/
+*.egg
+dist/
+build/
+wheels/
+pip-wheel-metadata/
+
+# Test, coverage, and type-checker caches
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.dmypy.json
 .coverage
+.coverage.*
 coverage.xml
 htmlcov/
-dist/
-build/
+.hypothesis/
+.tox/
+.nox/
 
-# Local environments and secrets
+# Virtual environments
 .venv/
+venv/
+env/
+ENV/
+
+# Secrets and local configuration. Only the committed example is tracked.
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
 
-# Editors and operating systems
+# Editors, IDEs, and operating systems
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
 .DS_Store
+.AppleDouble
 Thumbs.db
+desktop.ini
 
 # Local agent state. CLAUDE.md at the repo root IS tracked; this directory is
 # not. It holds worktrees containing full repo copies, including a real .env.
 .claude/
 
-# Private runtime data. Keep only runtime/README.md tracked.
-runtime/*
-!runtime/README.md
+# Private runtime data. Created on demand by the operator; nothing here is
+# tracked. runtime/README.md was removed, so this no longer needs an exception.
+runtime/
 
-# Generated personal documents and local browser data
+# Generated personal documents. The fictional fixtures are the only tracked binaries.
 *.docx
 !tests/fixtures/**/*.docx
 !src/auto_interner/demo_data/*.docx
+*.doc
 *.pdf
+*.odt
+
+# Local browser state and crash artifacts
 browser-profile/
+chromedriver.log
+*.crdownload
+core
+core.*
 
 # Personal workflow helpers and agent notes. They live on disk and keep working;
 # they are not part of the product and do not belong in a public tree.

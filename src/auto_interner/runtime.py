@@ -12,11 +12,9 @@ from pathlib import Path
 from typing import Any, Protocol
 from uuid import uuid4
 
-from auto_interner.git_source import GitSnapshotLoader
-from auto_interner.models import Listing
-from auto_interner.pipeline import PipelineRunResult
+from auto_interner.models import Listing, PipelineRunResult
 from auto_interner.run_lock import RunLock
-from auto_interner.source import RemoteSnapshotLoader, SnapshotDownload
+from auto_interner.sources import GitSnapshotLoader, RemoteSnapshotLoader, SnapshotDownload
 from auto_interner.state_store import StateCorruptionError, StateReconciliation, StateStore
 
 LOGGER = logging.getLogger(__name__)

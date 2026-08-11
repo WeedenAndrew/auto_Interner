@@ -8,7 +8,8 @@ Raspberry Pi 4B 4 GB server with its USB-attached M.2 SATA SSD.
 |---|---|---|
 | Linux multi-architecture image | Python 3.12 Bookworm multi-arch base | Dockerfile contract test; live build pending locally |
 | Non-root worker | fixed UID/GID `10001` | Dockerfile and CI image-user check |
-| Matching browser packages | Debian `chromium` plus `chromium-driver` | offline browser-smoke service and arm64 workflow |
+| Matching browser packages | Debian `chromium` plus `chromium-driver` | browser-smoke executed 2026-08-08: Chromium/ChromeDriver 151.0.7922.108 render a page under the hardened profile |
+| Browser writable scratch | per-session `--user-data-dir` plus tmpfs `$HOME` | [ADR-019](decisions.md#adr-019-chromium-requires-writable-scratch-under-a-read-only-root); first execution of this gate found Chromium could not start at all |
 | Bind-mounted durability | configurable host data/state bind mounts | Compose contract and Pi restart procedure |
 | `NF-REL-004` restart persistence | `restart: unless-stopped` plus host mounts | Pi reboot drill pending |
 | `NF-REL-005` rebuild persistence | image-independent host paths | Pi rebuild drill pending |
@@ -16,7 +17,7 @@ Raspberry Pi 4B 4 GB server with its USB-attached M.2 SATA SSD.
 | `NF-PER-006` idle memory | `1536m` hard worker limit on the 4 GB host | target measurement pending |
 | `NF-PER-007` browser peak | two-CPU default and bounded worker resources | target measurement pending |
 | `NF-PER-010` logs | `10m` × three-file `json-file` rotation | Compose contract; 24-hour observation pending |
-| `NF-PRT-002` x86_64 container | container CI job | executes after repository publication |
+| `NF-PRT-002` x86_64 container | container CI job | **passed locally 2026-08-10** on Docker 29.6.2 against this revision: build, non-root check, fixture smoke, browser smoke |
 | `NF-PRT-003` arm64 image/browser | manual self-hosted arm64 workflow | target Pi execution pending |
 | Health/heartbeat | bounded local JSON health check | unit tests and Compose healthcheck |
 | Container isolation | read-only root, no ports, all capabilities dropped | Compose security contract |

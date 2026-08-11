@@ -123,7 +123,6 @@ leaving the source version eligible for the next run.
 | `LISTINGS_URL_TEMPLATE` | none | complete HTTP(S) URL containing `{year}` once |
 | `POLL_INTERVAL_HOURS` | `2` | `0.25` through `168` |
 | `WINDOW_SIZE` | `100` | `1` through `1000` |
-| `MAX_FETCH_CONCURRENCY` | `4` | `1` through `16` |
 | `STATIC_FETCH_TIMEOUT_SECONDS` | `15` | `1` through `120` |
 | `BROWSER_FETCH_TIMEOUT_SECONDS` | `35` | `1` through `300` |
 | `BROWSER_ENABLED` | `false` | enable the live fallback only in an isolated runtime |

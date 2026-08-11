@@ -1,11 +1,13 @@
-"""Typed domain records shared by the offline pipeline."""
+"""Typed domain records and boundary protocols shared by the pipeline."""
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
+from typing import Protocol
 
 
 class FetchStatus(StrEnum):
@@ -68,7 +70,6 @@ class PipelineStatus(StrEnum):
 
     DISQUALIFIED = "disqualified"
     DEDUPE_SKIPPED = "dedupe_skipped"
-    SCREENING_PASSED = "screening_passed"
     SHADOW_READY = "shadow_ready"
     RESUME_GENERATED = "resume_generated"
     RETRYABLE_FAILURE = "retryable_failure"
@@ -147,3 +148,38 @@ class PipelineOutcome:
             PipelineStatus.RESUME_GENERATED,
             PipelineStatus.MANUAL_REVIEW,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class PipelineRunResult:
+    """Deterministic summary of one complete pipeline run."""
+
+    source_records: int
+    active_records: int
+    skipped_seen: int
+    windows_processed: int
+    outcomes: tuple[PipelineOutcome, ...]
+
+    @property
+    def status_counts(self) -> dict[str, int]:
+        """Count outcomes by their stable serialized status."""
+        return dict(Counter(outcome.status.value for outcome in self.outcomes))
+
+    def as_dict(self) -> dict[str, object]:
+        """Return a JSON-safe public summary with no posting bodies."""
+        return {
+            "source_records": self.source_records,
+            "active_records": self.active_records,
+            "skipped_seen": self.skipped_seen,
+            "windows_processed": self.windows_processed,
+            "processed": len(self.outcomes),
+            "terminal": sum(outcome.is_terminal for outcome in self.outcomes),
+            "status_counts": self.status_counts,
+        }
+
+
+class PostingFetcher(Protocol):
+    """Replaceable posting-text acquisition boundary."""
+
+    def fetch(self, listing: Listing, *, attempt_number: int) -> FetchResult:
+        """Return one classified fetch result without writing state."""

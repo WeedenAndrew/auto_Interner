@@ -1,11 +1,10 @@
-"""Complete single-writer listing-to-resume orchestration for Phase 6."""
+"""Complete single-writer listing-to-resume orchestration."""
 
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
 
 from auto_interner.dedupe import RoleDeduplicator
 from auto_interner.documents.assembler import DocumentAssemblyError, assemble_resume
@@ -14,11 +13,12 @@ from auto_interner.model_client import ModelBoundaryError, StructuredModelClient
 from auto_interner.models import (
     Confidence,
     EvidenceDecision,
-    FetchResult,
     FetchStatus,
     Listing,
     PipelineOutcome,
+    PipelineRunResult,
     PipelineStatus,
+    PostingFetcher,
     ScreeningCategory,
     ScreeningDecision,
     ScreeningEvidence,
@@ -30,7 +30,6 @@ from auto_interner.paths import (
     OutputPathError,
     OutputPathPlanner,
 )
-from auto_interner.pipeline import PipelineRunResult
 from auto_interner.rewriting.service import (
     RewriteResponseError,
     UnsupportedRewriteError,
@@ -43,15 +42,15 @@ from auto_interner.screening.semantic import SemanticResponseError, screen_posti
 from auto_interner.state_store import StateStore
 
 
-class PostingFetcher(Protocol):
-    """Replaceable posting-text acquisition boundary."""
-
-    def fetch(self, listing: Listing, *, attempt_number: int) -> FetchResult:
-        """Return one classified fetch result without writing state."""
-
-
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _reason(stage: str, disposition: str, detail: str | None) -> str:
+    """Name the failing stage, adding an adapter's sanitized detail when it has one."""
+    if detail is None or not detail.strip():
+        return f"{stage} {disposition}"
+    return f"{stage} {disposition}: {detail.strip()}"
 
 
 class ApplicationPipeline:
@@ -71,8 +70,10 @@ class ApplicationPipeline:
         max_attempts: int = 3,
         clock: Callable[[], datetime] = _utc_now,
     ) -> None:
-        if window_size <= 0 or max_attempts <= 0:
-            raise ValueError("pipeline window and attempt limits must be positive")
+        if window_size <= 0:
+            raise ValueError("window_size must be positive")
+        if max_attempts <= 0:
+            raise ValueError("max_fetch_attempts must be positive")
         self._state_store = state_store
         self._fetcher = fetcher
         self._model_client = model_client
@@ -91,10 +92,11 @@ class ApplicationPipeline:
         stage: str,
         attempt_number: int,
         timestamp: datetime,
+        detail: str | None = None,
     ) -> PipelineOutcome:
         return self._state_store.send_to_manual_review(
             listing,
-            reason=f"{stage} failed permanently",
+            reason=_reason(stage, "failed permanently", detail),
             attempt_number=attempt_number,
             timestamp=timestamp,
         )
@@ -105,10 +107,11 @@ class ApplicationPipeline:
         *,
         stage: str,
         timestamp: datetime,
+        detail: str | None = None,
     ) -> PipelineOutcome:
         return self._state_store.record_retry(
             listing,
-            reason=f"{stage} failed temporarily",
+            reason=_reason(stage, "failed temporarily", detail),
             max_attempts=self._max_attempts,
             timestamp=timestamp,
         )
@@ -163,8 +166,13 @@ class ApplicationPipeline:
         attempt_number = self._state_store.load_retry_counts().get(listing.id, 0) + 1
         try:
             fetch_result = self._fetcher.fetch(listing, attempt_number=attempt_number)
-        except Exception:
-            return self._retry(listing, stage="posting fetch", timestamp=timestamp)
+        except Exception as exc:
+            return self._retry(
+                listing,
+                stage="posting fetch",
+                timestamp=timestamp,
+                detail=f"adapter raised {type(exc).__name__}",
+            )
         if fetch_result.listing_id != listing.id or fetch_result.attempt_number != attempt_number:
             return self._manual(
                 listing,
@@ -173,16 +181,27 @@ class ApplicationPipeline:
                 timestamp=timestamp,
             )
         if fetch_result.status is FetchStatus.RETRYABLE_FAILURE:
-            return self._retry(listing, stage="posting fetch", timestamp=timestamp)
+            return self._retry(
+                listing,
+                stage="posting fetch",
+                timestamp=timestamp,
+                detail=fetch_result.failure_reason,
+            )
         if fetch_result.status is FetchStatus.PERMANENT_FAILURE:
             return self._manual(
                 listing,
                 stage="posting fetch",
                 attempt_number=attempt_number,
                 timestamp=timestamp,
+                detail=fetch_result.failure_reason,
             )
         if fetch_result.method is None or not fetch_result.text.strip():
-            return self._retry(listing, stage="posting fetch", timestamp=timestamp)
+            return self._retry(
+                listing,
+                stage="posting fetch",
+                timestamp=timestamp,
+                detail="adapter returned no usable text",
+            )
 
         decision = screen_posting_text(listing.id, fetch_result.text, decided_at=timestamp)
         if decision is not None:
@@ -202,16 +221,28 @@ class ApplicationPipeline:
                 decided_at=timestamp,
             )
         except (ModelBoundaryError, SemanticResponseError) as exc:
+            detail = f"boundary raised {type(exc).__name__}"
             if getattr(exc, "retryable", True):
-                return self._retry(listing, stage="semantic screening", timestamp=timestamp)
+                return self._retry(
+                    listing,
+                    stage="semantic screening",
+                    timestamp=timestamp,
+                    detail=detail,
+                )
             return self._manual(
                 listing,
                 stage="semantic screening",
                 attempt_number=attempt_number,
                 timestamp=timestamp,
+                detail=detail,
             )
-        except Exception:
-            return self._retry(listing, stage="semantic screening", timestamp=timestamp)
+        except Exception as exc:
+            return self._retry(
+                listing,
+                stage="semantic screening",
+                timestamp=timestamp,
+                detail=f"boundary raised {type(exc).__name__}",
+            )
         if decision is not None:
             return self._commit_disqualification(
                 listing,
@@ -245,24 +276,37 @@ class ApplicationPipeline:
                 fetch_result.text,
             )
             output_plan = self._output_planner.plan(listing, generated_at=timestamp)
-        except (ResumeStructureError, UnsupportedRewriteError, OutputPathError, TypeError):
+        except (ResumeStructureError, UnsupportedRewriteError, OutputPathError, TypeError) as exc:
             return self._manual(
                 listing,
                 stage="resume planning",
                 attempt_number=attempt_number,
                 timestamp=timestamp,
+                detail=f"rejected by {type(exc).__name__}",
             )
         except (ModelBoundaryError, RewriteResponseError) as exc:
+            detail = f"boundary raised {type(exc).__name__}"
             if getattr(exc, "retryable", True):
-                return self._retry(listing, stage="resume rewrite", timestamp=timestamp)
+                return self._retry(
+                    listing,
+                    stage="resume rewrite",
+                    timestamp=timestamp,
+                    detail=detail,
+                )
             return self._manual(
                 listing,
                 stage="resume rewrite",
                 attempt_number=attempt_number,
                 timestamp=timestamp,
+                detail=detail,
             )
-        except (OSError, ValueError):
-            return self._retry(listing, stage="resume planning", timestamp=timestamp)
+        except (OSError, ValueError) as exc:
+            return self._retry(
+                listing,
+                stage="resume planning",
+                timestamp=timestamp,
+                detail=f"raised {type(exc).__name__}",
+            )
 
         if self._shadow_mode:
             outcome = PipelineOutcome(

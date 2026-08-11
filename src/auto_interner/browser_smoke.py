@@ -43,7 +43,11 @@ def _home_is_writable() -> bool:
 
 
 def main() -> int:
-    """Open an in-memory page and always close the browser process."""
+    """Open an in-memory page and always close the browser process.
+
+    Diagnostics go to stderr because a bare exit code gives an operator nothing
+    to act on when the image or its isolation is misconfigured.
+    """
     binary = Path(os.environ.get("CHROMIUM_BINARY", "/usr/bin/chromium"))
     driver = Path(os.environ.get("CHROMEDRIVER_PATH", "/usr/bin/chromedriver"))
     for label, path in (("CHROMIUM_BINARY", binary), ("CHROMEDRIVER_PATH", driver)):

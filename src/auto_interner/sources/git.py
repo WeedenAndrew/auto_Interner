@@ -15,7 +15,7 @@ from pathlib import Path, PurePosixPath
 from typing import BinaryIO, Protocol, cast
 from urllib.parse import urlparse
 
-from auto_interner.source import (
+from auto_interner.sources.snapshot import (
     SnapshotDownload,
     SnapshotFormatError,
     SnapshotRetrievalError,

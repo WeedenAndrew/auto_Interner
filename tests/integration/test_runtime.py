@@ -10,10 +10,14 @@ from pathlib import Path
 
 import pytest
 
-from auto_interner.models import Listing, PipelineOutcome, PipelineStatus
-from auto_interner.pipeline import PipelineRunResult
+from auto_interner.models import (
+    Listing,
+    PipelineOutcome,
+    PipelineRunResult,
+    PipelineStatus,
+)
 from auto_interner.runtime import RunCoordinator, run_daemon
-from auto_interner.source import SnapshotDownload, SnapshotResult
+from auto_interner.sources import SnapshotDownload, SnapshotResult
 from auto_interner.state_store import StateCorruptionError, StateStore
 
 pytestmark = pytest.mark.integration

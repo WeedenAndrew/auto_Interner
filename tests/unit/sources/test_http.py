@@ -8,7 +8,7 @@ from typing import cast
 import pytest
 
 from auto_interner.network import HttpResponse, NetworkFailure, SafeHttpClient
-from auto_interner.source import RemoteSnapshotLoader, SnapshotRetrievalError
+from auto_interner.sources import RemoteSnapshotLoader, SnapshotRetrievalError
 
 pytestmark = [pytest.mark.unit, pytest.mark.contract]
 

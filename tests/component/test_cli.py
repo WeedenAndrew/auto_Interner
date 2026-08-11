@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 
 from auto_interner.cli import main
-from auto_interner.source import SnapshotDownload, SnapshotRetrievalError, parse_snapshot_payload
+from auto_interner.sources import SnapshotDownload, SnapshotRetrievalError, parse_snapshot_payload
 
-pytestmark = pytest.mark.component
+pytestmark = [pytest.mark.component, pytest.mark.acceptance, pytest.mark.e2e]
 
 
 def _valid_environment(tmp_path: Path) -> dict[str, str]:

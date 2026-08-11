@@ -7,7 +7,7 @@ import random
 import pytest
 
 from auto_interner.models import Listing
-from auto_interner.scanner import batched, iter_unseen_windows, select_unseen_active
+from auto_interner.scanner import iter_unseen_windows, select_unseen_active
 
 pytestmark = pytest.mark.unit
 
@@ -30,9 +30,10 @@ def _window_ids(listings: list[Listing], seen_ids: set[str], size: int) -> list[
     ]
 
 
-def test_batched_rejects_nonpositive_size() -> None:
-    with pytest.raises(ValueError, match="positive"):
-        list(batched([1], 0))
+def test_windowing_rejects_a_nonpositive_window_size() -> None:
+    """A zero or negative window must fail loudly rather than scan nothing."""
+    with pytest.raises(ValueError):
+        list(iter_unseen_windows([_listing("a")], set(), 0))
 
 
 @pytest.mark.parametrize(

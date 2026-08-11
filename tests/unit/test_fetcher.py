@@ -399,10 +399,9 @@ def test_selenium_factory_builds_headless_chrome_with_explicit_paths(
         no_sandbox=True,
     ).create()
 
-    assert created is session
     assert webdriver.options is not None
     assert webdriver.options.binary_location == str(chromium)
-    assert webdriver.options.arguments == [
+    assert webdriver.options.arguments[:4] == [
         "--headless=new",
         "--incognito",
         "--disable-dev-shm-usage",
@@ -410,6 +409,60 @@ def test_selenium_factory_builds_headless_chrome_with_explicit_paths(
     ]
     assert isinstance(webdriver.service, FakeService)
     assert webdriver.service.executable_path == str(driver_path)
+
+    profile_arguments = [
+        argument
+        for argument in webdriver.options.arguments
+        if argument.startswith("--user-data-dir=")
+    ]
+    assert len(profile_arguments) == 1
+    profile_dir = Path(profile_arguments[0].removeprefix("--user-data-dir="))
+    assert profile_dir.is_dir()
+
+    created.get("https://jobs.example/role")
+    assert created.page_source == session.page_source
+    assert created.current_url == session.current_url
+
+    created.quit()
+    assert session.events == ["get:https://jobs.example/role", "quit"]
+    assert not profile_dir.exists()
+
+
+def test_selenium_factory_removes_profile_when_the_driver_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed launch must not leave a throwaway Chromium profile behind."""
+    captured: list[str] = []
+
+    class FakeOptions:
+        def __init__(self) -> None:
+            self.arguments: list[str] = []
+            self.binary_location: str | None = None
+
+        def add_argument(self, argument: str) -> None:
+            self.arguments.append(argument)
+            captured.append(argument)
+
+    class FakeWebDriverModule:
+        @staticmethod
+        def ChromeOptions() -> FakeOptions:
+            return FakeOptions()
+
+        def Chrome(self, *, options: FakeOptions, service: object | None = None) -> object:
+            del options, service
+            raise RuntimeError("fictional driver launch failure")
+
+    monkeypatch.setattr(
+        "auto_interner.fetcher.importlib.import_module",
+        lambda name: FakeWebDriverModule(),
+    )
+
+    with pytest.raises(RuntimeError, match="fictional driver launch failure"):
+        SeleniumChromeFactory().create()
+
+    profiles = [value for value in captured if value.startswith("--user-data-dir=")]
+    assert len(profiles) == 1
+    assert not Path(profiles[0].removeprefix("--user-data-dir=")).exists()
 
 
 def test_selenium_factory_reports_missing_optional_dependency(

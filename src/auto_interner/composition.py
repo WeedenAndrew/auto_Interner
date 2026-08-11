@@ -2,39 +2,38 @@
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from datetime import UTC, datetime
 from hashlib import sha256
-from importlib import resources
 from pathlib import Path
-from typing import cast
 
 from auto_interner.application import ApplicationPipeline
 from auto_interner.config import Settings
 from auto_interner.dedupe import RoleDeduplicator
-from auto_interner.demo import FixtureFetcher
+from auto_interner.demo import (
+    FictionalStructuredModel,
+    FixtureFetcher,
+    fictional_base_resume_path,
+)
 from auto_interner.fetcher import (
     SeleniumBrowserFetcher,
     SeleniumChromeFactory,
     StaticFirstPostingFetcher,
 )
-from auto_interner.git_source import GitSnapshotLoader
-from auto_interner.model_client import AnthropicMessagesClient
-from auto_interner.models import Listing
+from auto_interner.model_client import AnthropicMessagesClient, StructuredModelClient
+from auto_interner.models import Listing, PostingFetcher
 from auto_interner.network import SafeHttpClient
 from auto_interner.paths import OutputPathPlanner
-from auto_interner.rewriting.service import REWRITE_TOOL_NAME
 from auto_interner.runtime import (
     GitRuntimeSource,
     HttpRuntimeSource,
     RunCoordinator,
     RuntimeSource,
 )
-from auto_interner.screening.semantic import SEMANTIC_TOOL_NAME
-from auto_interner.source import (
+from auto_interner.sources import (
+    GitSnapshotLoader,
     RemoteSnapshotLoader,
     SnapshotDownload,
     SnapshotResult,
@@ -52,57 +51,6 @@ _FIXTURE_POSTING = (
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
-
-
-class FictionalStructuredModel:
-    """Deterministic model fake for a complete no-network fixture run."""
-
-    def call_tool(
-        self,
-        *,
-        tool_name: str,
-        input_schema: Mapping[str, object],
-        system_prompt: str,
-        user_prompt: str,
-    ) -> object:
-        del input_schema, system_prompt
-        if tool_name == SEMANTIC_TOOL_NAME:
-            return {
-                "drug_testing": {
-                    "disqualified": False,
-                    "confidence": "high",
-                    "evidence": "no requirement appears in the fictional posting",
-                },
-                "security_clearance": {
-                    "disqualified": False,
-                    "confidence": "high",
-                    "evidence": "no clearance appears in the fictional posting",
-                },
-                "location_is_us": {
-                    "confirmed": True,
-                    "confidence": "high",
-                    "evidence": "the fictional posting states Denver, Colorado",
-                },
-            }
-        if tool_name != REWRITE_TOOL_NAME:
-            raise ValueError("fixture model received an unknown tool")
-        payload = cast(object, json.loads(user_prompt))
-        if not isinstance(payload, dict) or not isinstance(payload.get("base_resume"), dict):
-            raise ValueError("fixture rewrite payload is invalid")
-        base_resume = cast(dict[str, object], payload["base_resume"])
-        raw_sections = base_resume.get("sections")
-        if not isinstance(raw_sections, list):
-            raise ValueError("fixture rewrite payload omitted sections")
-        names = [
-            section["name"]
-            for section in raw_sections
-            if isinstance(section, dict) and isinstance(section.get("name"), str)
-        ]
-        if len(names) != len(raw_sections):
-            raise ValueError("fixture rewrite payload contains an invalid section")
-        preferred = [name for name in names if cast(str, name).casefold() == "technical skills"]
-        remaining = [name for name in names if name not in preferred]
-        return {"section_order": [*preferred, *remaining], "replacements": []}
 
 
 class FixtureRuntimeSource:
@@ -145,18 +93,15 @@ def _build_pipeline(
     settings: Settings,
     source: RuntimeSource,
     state_store: StateStore,
-    fetcher: object,
-    model_client: object,
+    fetcher: PostingFetcher,
+    model_client: StructuredModelClient,
     base_resume_path: Path,
     clock: Callable[[], datetime] = _utc_now,
 ) -> RunCoordinator:
-    from auto_interner.application import PostingFetcher
-    from auto_interner.model_client import StructuredModelClient
-
     pipeline = ApplicationPipeline(
         state_store=state_store,
-        fetcher=cast(PostingFetcher, fetcher),
-        model_client=cast(StructuredModelClient, model_client),
+        fetcher=fetcher,
+        model_client=model_client,
         output_planner=OutputPathPlanner(settings.data_dir, settings.recruiting_year),
         deduplicator=RoleDeduplicator(settings.data_dir, settings.recruiting_year),
         base_resume_path=base_resume_path,
@@ -264,7 +209,6 @@ def build_fixture_coordinator(
         listings_git_path=".github/scripts/listings.json",
         poll_interval_hours=2.0,
         window_size=100,
-        max_fetch_concurrency=1,
         static_fetch_timeout_seconds=15.0,
         git_fetch_timeout_seconds=60.0,
         browser_fetch_timeout_seconds=35.0,
@@ -276,9 +220,7 @@ def build_fixture_coordinator(
         state_dir=state_dir,
         log_level="INFO",
     )
-    base_resume = Path(
-        str(resources.files("auto_interner.demo_data").joinpath("fictional_base_resume.docx"))
-    )
+    base_resume = fictional_base_resume_path()
     state_store = StateStore(state_dir)
     return _build_pipeline(
         settings=settings,

@@ -71,6 +71,11 @@ adapter is implemented.
 
 ## ADR-008: deterministic screening passes are nonterminal
 
+**Status:** superseded by [ADR-018](#adr-018-one-pipeline-owns-every-stage). The
+nonterminal-pass rule still holds; the `screening_passed` status that carried it no
+longer exists because a passing listing now continues to the later stages in the same
+run and lands on `shadow_ready`, `dedupe_skipped`, or `resume_generated`.
+
 **Decision:** Tier 0 or Tier 1 disqualification and exhausted manual review are terminal
 in Phase 1. Passing deterministic screening is recorded but does not join the seen set.
 
@@ -529,3 +534,77 @@ happens.
 `CLEANUP.cmd` lists the example assets the README no longer references and asks
 before deleting. The posting texts are kept deliberately — they are the
 provenance for the worked example.
+## ADR-018: one pipeline owns every stage
+
+**Decision:** Delete the Phase 1 `OfflinePipeline` and route every caller — live runs,
+`run-once --fixture`, and `demo` — through `ApplicationPipeline`. Move the shared
+`PipelineRunResult` record and `PostingFetcher` protocol into `models.py`. Retire the
+`screening_passed` status.
+
+**Why:** The two orchestrators had grown from a shared ancestor into ~130 lines of
+duplicated stage sequencing, each with its own copy of the fetch boundary protocol. They
+had already diverged in a way that cost the live path diagnosability: `OfflinePipeline`
+persisted the adapter's classified `failure_reason`, while `ApplicationPipeline`
+overwrote it with a generic stage label, so live manual-review records explained less
+than demonstration ones. Two implementations of one policy is also two places for a
+false disqualification to be introduced independently.
+
+**Consequence:** The demonstration now exercises the semantic, dedupe, rewrite, and
+path-planning stages against bundled fictional data instead of stopping after Tier 1. It
+runs in permanent shadow mode against a derived data directory under its state
+directory, so it still writes no document and reads no private input. Its observable
+run counts are unchanged, and a passing fixture listing now records `shadow_ready`
+rather than `screening_passed`; both are nonterminal, so repeat-run behavior is
+identical.
+
+**Alternative considered:** Keeping `OfflinePipeline` for the demonstration and
+extracting the shared stages into helpers. That preserves two entry points into one
+policy and leaves the divergence risk in place for a demonstration path that no longer
+needs a reduced pipeline.
+
+## ADR-019: Chromium requires writable scratch under a read-only root
+
+**Decision:** Give the browser two writable locations inside the read-only container:
+the adapter pins `--user-data-dir` to a single-use directory it creates and deletes per
+session, and Compose mounts the whole `/home/auto-interner` as tmpfs rather than only
+`.cache`.
+
+**Why:** Chromium refuses to start when `$HOME` is read-only, and it does so twice for
+different reasons. It first fails to create its profile container. With the profile
+relocated it still fails, because Crashpad derives its database path from `$HOME`
+independently of `--user-data-dir`; given an unwritable path it launches
+`chrome_crashpad_handler` with an empty `--database` and aborts the browser with
+`SIGTRAP`. No Chromium flag avoids the second failure. `--disable-crash-reporter`,
+`--crash-dumps-dir`, `--disable-gpu`, `--disable-features=Crashpad`, and
+`--disable-breakpad` were each measured and each still aborts; only a writable `$HOME`
+succeeds.
+
+**Why both layers:** the profile is the adapter's own concern, so the adapter owns it
+and no longer depends on an ambient writable home wherever it runs. It also gains
+single-use profile isolation, which matches [ADR-011](#adr-011-keep-browser-rendering-optional-and-isolated).
+The writable home is the deployment's concern, so it lives beside the `read_only: true`
+that creates the constraint.
+
+**Regression risk:** narrowing that tmpfs back to `.cache`, or dropping the
+`--user-data-dir` argument, reintroduces a failure that no unit test can catch — the
+Python suite injects fake browser sessions and never launches Chromium. The offline
+`browser-smoke` Compose service is the only automated guard, so it must stay in the
+container gate.
+
+## ADR-020: one snapshot parser, two interchangeable transports
+
+**Decision:** Replace the flat `source.py` and `git_source.py` modules with an
+`auto_interner.sources` package: `snapshot` owns record parsing and the shared types,
+while `git` and `http` are transports that depend on it. The parser imports neither.
+
+**Why:** [ADR-012](#adr-012-use-immutable-git-snapshots-for-discovery) states that Git is
+only the snapshot transport, but the layout contradicted it. `source.py` mixed
+transport-independent record validation with the HTTP loader, so the HTTP transport was
+structurally privileged over the Git one and the parser could not be read, tested, or
+replaced without pulling in a network client. The package makes the documented
+dependency direction visible in the file tree.
+
+**Consequence:** `SnapshotDownload`, `SnapshotResult`, and the parsing entry points are
+re-exported from `auto_interner.sources`, so callers import one stable surface while the
+transport split stays internal. Adding a third transport means adding a module beside
+`git` and `http` rather than editing the parser.

@@ -14,7 +14,7 @@ test or demo path. Every case uses fictional posting excerpts and local fakes.
 | `F-L2-013` data minimization | posting-only request | request-content test |
 | `F-L2-014` multi-category evidence | evidence tuple preserves every hard category | combined-category test |
 | Provider contract | fixed endpoint, strict forced tool, bounded response | `test_model_client.py` |
-| Pipeline order and recovery | Tier 2 follows Tier 1; failures retry or review | `test_semantic_pipeline.py` |
+| Pipeline order and recovery | Tier 2 follows Tier 1; failures retry or review | `test_application.py` |
 
 The release gate is format, lint, strict typing, the complete offline suite, branch
 coverage of at least 85%, and a scan proving that no live credentials or private resume

@@ -6,15 +6,17 @@ import json
 from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from auto_interner.application import ApplicationPipeline
 from auto_interner.dedupe import RoleDeduplicator
 from auto_interner.demo import FixtureFetcher
-from auto_interner.models import Listing, PipelineStatus
+from auto_interner.model_client import ModelBoundaryError
+from auto_interner.models import FetchResult, Listing, PipelineStatus
 from auto_interner.paths import OutputPathPlanner
-from auto_interner.rewriting.service import REWRITE_TOOL_NAME
+from auto_interner.rewriting.service import REWRITE_TOOL_NAME, RewriteResponseError
 from auto_interner.screening.semantic import SEMANTIC_TOOL_NAME
 from auto_interner.state_store import StateStore
 
@@ -93,6 +95,8 @@ def _pipeline(
     shadow: bool,
     model: FakeModel | None = None,
     fetcher: FixtureFetcher | None = None,
+    window_size: int = 10,
+    max_attempts: int = 3,
 ) -> tuple[ApplicationPipeline, StateStore, FixtureFetcher, FakeModel]:
     data_dir = tmp_path / "data"
     state = StateStore(tmp_path / "state")
@@ -109,8 +113,8 @@ def _pipeline(
             deduplicator=RoleDeduplicator(data_dir, 2027),
             base_resume_path=_base_resume(),
             shadow_mode=shadow,
-            window_size=10,
-            max_attempts=3,
+            window_size=window_size,
+            max_attempts=max_attempts,
             clock=lambda: NOW,
         ),
         state,
@@ -326,3 +330,197 @@ def test_f_orc_009_through_011_seen_ids_survive_repeat_addition_and_reorder(
     assert [outcome.listing_id for outcome in added.outcomes] == [second.id]
     assert reordered.outcomes == ()
     assert state.load_seen_ids() == {first.id, second.id}
+
+
+def _routing_listing(listing_id: str, location: str, *, active: bool = True) -> Listing:
+    return Listing(
+        id=listing_id,
+        company_name=f"Fictional {listing_id.title()}",
+        title="Software Engineering Intern",
+        url=f"https://example.invalid/{listing_id}",
+        locations=(location,),
+        active=active,
+    )
+
+
+def test_mixed_snapshot_routes_every_deterministic_outcome(tmp_path: Path) -> None:
+    """One windowed run reaches each terminal and nonterminal status exactly once."""
+    listings = [
+        _routing_listing("location", "Toronto, Ontario, Canada"),
+        _routing_listing("keyword", "Denver, CO"),
+        _routing_listing("pass", "Remote in US"),
+        _routing_listing("retry", "Austin, TX"),
+        _routing_listing("inactive", "Seattle, WA", active=False),
+    ]
+    fetcher = FixtureFetcher(
+        {
+            "keyword": {
+                "status": "success",
+                "text": "An active security clearance is required for this fictional role.",
+            },
+            "pass": {"status": "success", "text": POSTING},
+            "retry": {"status": "retryable_failure", "failure_reason": "fixture timeout"},
+        }
+    )
+    pipeline, state, _fetcher, _model = _pipeline(
+        tmp_path, shadow=True, fetcher=fetcher, window_size=2
+    )
+
+    result = pipeline.run(listings)
+
+    assert result.as_dict() == {
+        "source_records": 5,
+        "active_records": 4,
+        "skipped_seen": 0,
+        "windows_processed": 2,
+        "processed": 4,
+        "terminal": 2,
+        "status_counts": {
+            "disqualified": 2,
+            "shadow_ready": 1,
+            "retryable_failure": 1,
+        },
+    }
+    assert fetcher.calls == ["keyword", "pass", "retry"]
+    assert state.load_seen_ids() == {"location", "keyword"}
+
+
+def test_second_run_reprocesses_only_nonterminal_listings(tmp_path: Path) -> None:
+    """A shadow-ready listing stays eligible while terminal ones are skipped."""
+    listings = [
+        _routing_listing("location", "Toronto, Ontario, Canada"),
+        _routing_listing("keyword", "Denver, CO"),
+        _routing_listing("pass", "Remote in US"),
+    ]
+    fetcher = FixtureFetcher(
+        {
+            "keyword": {
+                "status": "success",
+                "text": "A security clearance is required for this fictional role.",
+            },
+            "pass": {"status": "success", "text": POSTING},
+        }
+    )
+    pipeline, _state, _fetcher, _model = _pipeline(tmp_path, shadow=True, fetcher=fetcher)
+
+    first = pipeline.run(listings)
+    second = pipeline.run(listings)
+
+    assert [outcome.status for outcome in first.outcomes] == [
+        PipelineStatus.DISQUALIFIED,
+        PipelineStatus.DISQUALIFIED,
+        PipelineStatus.SHADOW_READY,
+    ]
+    assert [outcome.status for outcome in second.outcomes] == [PipelineStatus.SHADOW_READY]
+    assert second.skipped_seen == 2
+    assert fetcher.calls == ["keyword", "pass", "pass"]
+
+
+def test_fetch_exceptions_retry_then_become_manual_review(tmp_path: Path) -> None:
+    """A raising adapter is retried, and its private message never reaches state."""
+
+    class RaisingFetcher:
+        def fetch(self, listing: Listing, *, attempt_number: int) -> FetchResult:
+            del listing, attempt_number
+            raise TimeoutError("private boundary detail is not persisted")
+
+    listing = _routing_listing("unstable", "Denver, CO")
+    pipeline, state, _fetcher, _model = _pipeline(
+        tmp_path,
+        shadow=True,
+        fetcher=cast(FixtureFetcher, RaisingFetcher()),
+        max_attempts=2,
+    )
+
+    first = pipeline.run([listing])
+    second = pipeline.run([listing])
+
+    assert first.outcomes[0].status is PipelineStatus.RETRYABLE_FAILURE
+    assert second.outcomes[0].status is PipelineStatus.MANUAL_REVIEW
+    assert state.load_seen_ids() == {listing.id}
+    decisions = state.decisions_path.read_text(encoding="utf-8")
+    assert "private boundary detail" not in decisions
+    assert "adapter raised TimeoutError" in decisions
+
+
+def test_permanent_fetch_failure_enters_manual_review_with_adapter_reason(
+    tmp_path: Path,
+) -> None:
+    """A permanent fetch failure is terminal and keeps the adapter's sanitized reason."""
+    fetcher = FixtureFetcher(
+        {"missing": {"status": "permanent_failure", "failure_reason": "fixture missing"}}
+    )
+    pipeline, state, _fetcher, _model = _pipeline(tmp_path, shadow=True, fetcher=fetcher)
+
+    outcome = pipeline.run([_routing_listing("missing", "Denver, CO")]).outcomes[0]
+
+    assert outcome.status is PipelineStatus.MANUAL_REVIEW
+    assert outcome.is_terminal
+    assert "fixture missing" in state.manual_review_path.read_text(encoding="utf-8")
+
+
+def test_malformed_semantic_output_retries_without_body_leakage(tmp_path: Path) -> None:
+    """An off-schema Tier 2 payload is retryable and is never persisted."""
+    private_marker = "private-model-body-marker"
+    model = FakeModel(semantic={"invalid": private_marker})
+    pipeline, state, _fetcher, _model = _pipeline(tmp_path, shadow=True, model=model)
+
+    outcome = pipeline.run([_listing()]).outcomes[0]
+
+    assert outcome.status is PipelineStatus.RETRYABLE_FAILURE
+    assert private_marker not in state.decisions_path.read_text(encoding="utf-8")
+
+
+def test_permanent_provider_failure_enters_manual_review(tmp_path: Path) -> None:
+    """A nonretryable provider failure is terminal without leaking provider detail."""
+
+    class FailingModel(FakeModel):
+        def call_tool(self, **kwargs: object) -> object:
+            raise ModelBoundaryError("private provider detail", retryable=False)
+
+    pipeline, state, _fetcher, _model = _pipeline(tmp_path, shadow=True, model=FailingModel())
+
+    outcome = pipeline.run([_listing()]).outcomes[0]
+
+    assert outcome.status is PipelineStatus.MANUAL_REVIEW
+    assert "private provider detail" not in state.decisions_path.read_text(encoding="utf-8")
+
+
+class _RewriteFailureModel(FakeModel):
+    """Pass Tier 2, then fail only at the rewrite boundary."""
+
+    def __init__(self, failure: Exception) -> None:
+        super().__init__()
+        self.failure = failure
+
+    def call_tool(self, **kwargs: object) -> object:
+        if kwargs["tool_name"] == REWRITE_TOOL_NAME:
+            raise self.failure
+        return super().call_tool(**kwargs)  # type: ignore[arg-type]
+
+
+def test_retryable_rewrite_failure_is_not_terminal(tmp_path: Path) -> None:
+    """An off-schema rewrite response is retried rather than consuming the listing."""
+    model = _RewriteFailureModel(RewriteResponseError("private schema detail"))
+    pipeline, state, _fetcher, _model = _pipeline(tmp_path, shadow=True, model=model)
+
+    outcome = pipeline.run([_listing()]).outcomes[0]
+
+    assert outcome.status is PipelineStatus.RETRYABLE_FAILURE
+    assert state.load_seen_ids() == set()
+    decisions = state.decisions_path.read_text(encoding="utf-8")
+    assert "private schema detail" not in decisions
+    assert "resume rewrite failed temporarily" in decisions
+
+
+def test_permanent_rewrite_failure_enters_manual_review(tmp_path: Path) -> None:
+    """A nonretryable rewrite-boundary failure is terminal and stops before assembly."""
+    model = _RewriteFailureModel(ModelBoundaryError("private provider detail", retryable=False))
+    pipeline, state, _fetcher, _model = _pipeline(tmp_path, shadow=False, model=model)
+
+    outcome = pipeline.run([_listing()]).outcomes[0]
+
+    assert outcome.status is PipelineStatus.MANUAL_REVIEW
+    assert state.manual_review_count() == 1
+    assert not (tmp_path / "data").exists()
+    assert "private provider detail" not in state.manual_review_path.read_text(encoding="utf-8")

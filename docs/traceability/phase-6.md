@@ -19,7 +19,7 @@ resume, credential, browser session, GitHub repository, or model service.
 | `F-CLI-001`–`003` run-once | CLI plus complete fictional coordinator | help, shadow, write, and error tests |
 | `F-CLI-004`–`007` daemon | immediate serialized run/wait loop | command dispatch and scheduler-order tests |
 | `F-CLI-008` backlog count | `manual-review-count` | configuration-free count test |
-| `F-CLI-009` offline demo | bundled Phase 1 and full-pipeline fixtures | repeated offline CLI tests |
+| `F-CLI-009` offline demo | bundled fictional fixtures through the shared pipeline | repeated offline CLI tests |
 | `NF-REL-003` decision/seen crash | recovery-aware `commit_terminal` | no-duplicate recovery test |
 | `NF-REL-011` non-overlap | portable operating-system `RunLock` | active-owner and stale-file tests |
 | `NF-DAT-006` seen reconciliation | seen IDs must have terminal decisions | corrupt cross-file state test |
@@ -30,7 +30,11 @@ those terminal outcomes exist in the seen set, and persisted state reconciles. A
 shadow result, exception, or state mismatch leaves the source version unprocessed so a
 later run can safely revisit it.
 
-The complete fictional command is deliberately separate from the legacy Phase 1 demo:
+Since [ADR-018](decisions.md#adr-018-one-pipeline-owns-every-stage) both offline
+commands drive the same `ApplicationPipeline`. They differ only in fixture set and in
+whether a write is permitted: `demo` uses the bundled multi-listing snapshot and is
+always a shadow run, while `run-once --fixture` uses the single full-pipeline listing
+and can publish:
 
 ```powershell
 auto-interner run-once --fixture --data-dir runtime/fixture-data --state-dir runtime/fixture-state

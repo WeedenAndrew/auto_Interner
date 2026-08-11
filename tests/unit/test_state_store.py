@@ -11,7 +11,7 @@ import pytest
 from auto_interner.models import Listing, PipelineOutcome, PipelineStatus
 from auto_interner.state_store import CommitPoint, StateCorruptionError, StateStore
 
-pytestmark = pytest.mark.unit
+pytestmark = [pytest.mark.unit, pytest.mark.reliability]
 
 NOW = datetime(2027, 1, 2, 3, 4, tzinfo=UTC)
 
@@ -125,7 +125,7 @@ def test_nonterminal_outcome_cannot_use_terminal_commit(tmp_path: Path) -> None:
     store = StateStore(tmp_path)
     outcome = PipelineOutcome(
         listing_id="one",
-        status=PipelineStatus.SCREENING_PASSED,
+        status=PipelineStatus.SHADOW_READY,
         summary="later stages pending",
         timestamp=NOW,
     )

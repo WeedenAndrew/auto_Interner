@@ -8,15 +8,39 @@ from typing import cast
 
 import pytest
 
+from auto_interner.application import ApplicationPipeline
+from auto_interner.dedupe import RoleDeduplicator
+from auto_interner.demo import FictionalStructuredModel, fictional_base_resume_path
 from auto_interner.fetcher import BrowserFetchError, StaticFirstPostingFetcher
-from auto_interner.models import Listing, PipelineStatus
+from auto_interner.models import Listing, PipelineStatus, PostingFetcher
 from auto_interner.network import HttpResponse, NetworkFailure, SafeHttpClient
-from auto_interner.pipeline import OfflinePipeline
+from auto_interner.paths import OutputPathPlanner
 from auto_interner.state_store import StateStore
 
 pytestmark = pytest.mark.integration
 
 NOW = datetime(2027, 1, 2, 3, 4, tzinfo=UTC)
+
+
+def _pipeline(
+    tmp_path: Path,
+    fetcher: PostingFetcher,
+    *,
+    max_attempts: int = 3,
+) -> ApplicationPipeline:
+    """Drive the real fetch adapter through the shared shadow-mode pipeline."""
+    data_dir = tmp_path / "data"
+    return ApplicationPipeline(
+        state_store=StateStore(tmp_path / "state"),
+        fetcher=fetcher,
+        model_client=FictionalStructuredModel(),
+        output_planner=OutputPathPlanner(data_dir, 2027),
+        deduplicator=RoleDeduplicator(data_dir, 2027),
+        base_resume_path=fictional_base_resume_path(),
+        shadow_mode=True,
+        max_attempts=max_attempts,
+        clock=lambda: NOW,
+    )
 
 
 def _listing(listing_id: str = "fixture-one") -> Listing:
@@ -56,12 +80,7 @@ def test_f_fet_007_and_008_repeated_fetch_failures_become_manual_review(
     )
     fetcher = StaticFirstPostingFetcher(client, browser=FailingBrowser())
     store = StateStore(tmp_path / "state")
-    pipeline = OfflinePipeline(
-        state_store=store,
-        fetcher=fetcher,
-        max_fetch_attempts=3,
-        clock=lambda: NOW,
-    )
+    pipeline = _pipeline(tmp_path, fetcher, max_attempts=3)
 
     first = pipeline.run([_listing()]).outcomes[0]
     second = pipeline.run([_listing()]).outcomes[0]
@@ -85,11 +104,7 @@ def test_static_posting_text_flows_into_deterministic_screening(tmp_path: Path) 
     )
     fetcher = StaticFirstPostingFetcher(cast(SafeHttpClient, FakeClient(response)))
     store = StateStore(tmp_path / "state")
-    pipeline = OfflinePipeline(
-        state_store=store,
-        fetcher=fetcher,
-        clock=lambda: NOW,
-    )
+    pipeline = _pipeline(tmp_path, fetcher)
 
     outcome = pipeline.run([_listing()]).outcomes[0]
 

@@ -85,7 +85,7 @@ def test_f_cfg_006_template_without_year_fails(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     ("name", "value"),
-    [("WINDOW_SIZE", "0"), ("MAX_FETCH_CONCURRENCY", "-1")],
+    [("WINDOW_SIZE", "0"), ("WINDOW_SIZE", "-1"), ("MAX_FETCH_ATTEMPTS", "0")],
 )
 def test_f_cfg_007_nonpositive_limits_are_rejected(tmp_path: Path, name: str, value: str) -> None:
     """F-CFG-007: bounded work settings cannot be zero or negative."""

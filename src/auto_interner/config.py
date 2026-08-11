@@ -101,7 +101,6 @@ class Settings:
     listings_git_path: str
     poll_interval_hours: float
     window_size: int
-    max_fetch_concurrency: int
     static_fetch_timeout_seconds: float
     git_fetch_timeout_seconds: float
     browser_fetch_timeout_seconds: float
@@ -221,13 +220,6 @@ class Settings:
                 maximum=168.0,
             ),
             window_size=_parse_int(values, "WINDOW_SIZE", 100, minimum=1, maximum=1_000),
-            max_fetch_concurrency=_parse_int(
-                values,
-                "MAX_FETCH_CONCURRENCY",
-                4,
-                minimum=1,
-                maximum=16,
-            ),
             static_fetch_timeout_seconds=_parse_float(
                 values,
                 "STATIC_FETCH_TIMEOUT_SECONDS",

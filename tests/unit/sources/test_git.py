@@ -10,12 +10,12 @@ from typing import cast
 
 import pytest
 
-from auto_interner.git_source import (
+from auto_interner.sources import (
     GitCommandFailure,
     GitSnapshotLoader,
+    SnapshotRetrievalError,
     SubprocessGitRunner,
 )
-from auto_interner.source import SnapshotRetrievalError
 
 pytestmark = [pytest.mark.unit, pytest.mark.contract, pytest.mark.security]
 

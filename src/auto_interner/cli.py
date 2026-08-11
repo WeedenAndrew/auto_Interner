@@ -14,12 +14,12 @@ from auto_interner import __version__
 from auto_interner.composition import build_fixture_coordinator, build_live_coordinator
 from auto_interner.config import Settings, SettingsError
 from auto_interner.demo import DemoDataError, run_demo
-from auto_interner.git_source import GitSnapshotLoader
 from auto_interner.logging_config import configure_logging
 from auto_interner.network import SafeHttpClient
 from auto_interner.run_lock import RunAlreadyActiveError
 from auto_interner.runtime import run_daemon
-from auto_interner.source import (
+from auto_interner.sources import (
+    GitSnapshotLoader,
     RemoteSnapshotLoader,
     SnapshotFormatError,
     SnapshotRetrievalError,

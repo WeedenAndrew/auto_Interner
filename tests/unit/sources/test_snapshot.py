@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from auto_interner.source import (
+from auto_interner.sources import (
     SnapshotFormatError,
     load_snapshot,
     parse_snapshot_json,

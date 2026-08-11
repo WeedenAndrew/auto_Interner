@@ -5,6 +5,8 @@ from __future__ import annotations
 import codecs
 import importlib
 import re
+import shutil
+import tempfile
 import unicodedata
 from dataclasses import dataclass
 from hashlib import sha256
@@ -158,8 +160,11 @@ def is_usable_posting_text(text: str, *, minimum_characters: int = 200) -> bool:
 class BrowserSession(Protocol):
     """Small Selenium-compatible surface used by the cleanup wrapper."""
 
-    page_source: str
-    current_url: str
+    @property
+    def page_source(self) -> str: ...
+
+    @property
+    def current_url(self) -> str: ...
 
     def set_page_load_timeout(self, seconds: float) -> None: ...
 
@@ -168,6 +173,37 @@ class BrowserSession(Protocol):
     def get(self, url: str) -> None: ...
 
     def quit(self) -> None: ...
+
+
+class _ThrowawayProfileSession:
+    """Own one session and delete its single-use profile directory on quit."""
+
+    def __init__(self, session: BrowserSession, profile_dir: Path) -> None:
+        self._session = session
+        self._profile_dir = profile_dir
+
+    @property
+    def page_source(self) -> str:
+        return self._session.page_source
+
+    @property
+    def current_url(self) -> str:
+        return self._session.current_url
+
+    def set_page_load_timeout(self, seconds: float) -> None:
+        self._session.set_page_load_timeout(seconds)
+
+    def set_script_timeout(self, seconds: float) -> None:
+        self._session.set_script_timeout(seconds)
+
+    def get(self, url: str) -> None:
+        self._session.get(url)
+
+    def quit(self) -> None:
+        try:
+            self._session.quit()
+        finally:
+            shutil.rmtree(self._profile_dir, ignore_errors=True)
 
 
 class BrowserSessionFactory(Protocol):
@@ -203,13 +239,22 @@ class SeleniumChromeFactory:
         if self.chromium_binary is not None:
             options.binary_location = str(self.chromium_binary)
 
-        if self.chromedriver_path is None:
-            driver = webdriver.Chrome(options=options)
-        else:
-            service_module = importlib.import_module("selenium.webdriver.chrome.service")
-            service = service_module.Service(executable_path=str(self.chromedriver_path))
-            driver = webdriver.Chrome(service=service, options=options)
-        return cast(BrowserSession, driver)
+        # Chromium defaults its profile to $HOME, which is read-only in the hardened
+        # container. Pin a single-use directory under the writable temporary root so
+        # the adapter never depends on an ambient writable home.
+        profile_dir = Path(tempfile.mkdtemp(prefix="auto-interner-chrome-"))
+        options.add_argument(f"--user-data-dir={profile_dir}")
+        try:
+            if self.chromedriver_path is None:
+                driver = webdriver.Chrome(options=options)
+            else:
+                service_module = importlib.import_module("selenium.webdriver.chrome.service")
+                service = service_module.Service(executable_path=str(self.chromedriver_path))
+                driver = webdriver.Chrome(service=service, options=options)
+        except BaseException:
+            shutil.rmtree(profile_dir, ignore_errors=True)
+            raise
+        return _ThrowawayProfileSession(cast(BrowserSession, driver), profile_dir)
 
 
 class SeleniumBrowserFetcher:

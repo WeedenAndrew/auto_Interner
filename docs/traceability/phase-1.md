@@ -7,7 +7,7 @@ The default suite made no network, browser, model, or résumé call.
 | Requirement | Implementation | Automated evidence |
 |---|---|---|
 | Typed listing and outcome records | `src/auto_interner/models.py` | source and pipeline tests |
-| Strict local snapshot parsing | `src/auto_interner/source.py` | `F-SRC-001` through `F-SRC-007`, `F-SRC-009` |
+| Strict local snapshot parsing | `src/auto_interner/sources/snapshot.py` | `F-SRC-001` through `F-SRC-007`, `F-SRC-009` |
 | Duplicate-ID anomaly reporting | `parse_snapshot_payload` | `F-SRC-004` |
 | Windowed unseen-ID scanning | `src/auto_interner/scanner.py` | `F-SCN-001` through `F-SCN-008`, reorder case |
 | Conservative US location rules | `src/auto_interner/screening/location.py` | `F-L0-001` through `F-L0-010` |
@@ -17,6 +17,10 @@ The default suite made no network, browser, model, or résumé call.
 | Retry and manual-review transitions | `StateStore.record_retry` | `F-STA-007`, `F-STA-008` |
 | End-to-end offline command | `auto-interner demo` | CLI component and pipeline integration tests |
 | Second run skips terminal IDs only | `OfflinePipeline.run` | repeated-run integration and CLI tests |
+
+> **Later change:** `OfflinePipeline` was merged into `ApplicationPipeline` under
+> [ADR-018](decisions.md#adr-018-one-pipeline-owns-every-stage). The behavior recorded
+> above is now covered by `tests/integration/test_application.py`.
 
 ## Demonstrated limits
 

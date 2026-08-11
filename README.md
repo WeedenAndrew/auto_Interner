@@ -169,15 +169,15 @@ model call:
 .\.venv\Scripts\auto-interner.exe source-check
 ```
 
-Run the complete Phase 1 flow with bundled fictional data and no private inputs or
-external calls:
+Run the complete pipeline over bundled fictional data with no private inputs or
+external calls. The demonstration is always a shadow run and writes no document:
 
 ```powershell
 .\.venv\Scripts\auto-interner.exe demo --state-dir .\runtime\demo-state
 ```
 
 Run it a second time with the same state directory to verify that terminal IDs are
-skipped while nonterminal work remains eligible for later pipeline stages. The third
+skipped while nonterminal work remains eligible for reprocessing. The third
 run moves the fixture's repeated temporary failure to manual review.
 
 Exercise the complete pipeline with a fictional résumé, posting, and deterministic

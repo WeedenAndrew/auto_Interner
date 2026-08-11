@@ -8,7 +8,7 @@ import pytest
 
 from auto_interner.run_lock import RunAlreadyActiveError, RunLock
 
-pytestmark = [pytest.mark.unit, pytest.mark.portability]
+pytestmark = [pytest.mark.unit, pytest.mark.portability, pytest.mark.reliability]
 
 
 def test_stale_lock_file_does_not_block_a_new_run(tmp_path: Path) -> None:

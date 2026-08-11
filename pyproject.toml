@@ -17,7 +17,9 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Typing :: Typed",
 ]
-dependencies = ["python-docx==1.2.0"]
+# lxml is imported directly by the DOCX assembler for OOXML scrubbing. It arrives
+# transitively with python-docx, but a direct import needs a direct declaration.
+dependencies = ["python-docx==1.2.0", "lxml==6.1.1"]
 
 [project.optional-dependencies]
 dev = [
@@ -48,19 +50,24 @@ addopts = """
 -m "not live and not slow and not soak and not arm64"
 """
 testpaths = ["tests"]
+# Every marker below is either carried by tests in the default suite or names an
+# opt-in gate that `addopts` deselects. Markers with neither role are not declared,
+# so `-m <marker>` never implies coverage that does not exist.
 markers = [
+  # Scope
   "unit: isolated pure-function or class tests",
   "component: complete module tests with local fakes",
   "contract: adapter and schema boundary tests",
   "integration: tests of multiple local components",
   "e2e: complete offline pipeline tests",
   "acceptance: user-visible workflow tests",
+  # Quality attributes
   "security: security behavior tests",
-  "performance: performance budget tests",
   "reliability: crash and recovery tests",
   "privacy: privacy boundary tests",
   "portability: cross-platform behavior tests",
   "observability: log and summary tests",
+  # Opt-in gates, deselected by default; these intentionally have no default-suite members
   "live: opt-in external service tests",
   "browser: tests requiring Chromium",
   "arm64: tests requiring an arm64 target",

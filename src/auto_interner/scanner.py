@@ -3,18 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
-from itertools import islice
+from itertools import batched
 
 from auto_interner.models import Listing
-
-
-def batched[T](items: Iterable[T], size: int) -> Iterator[tuple[T, ...]]:
-    """Yield fixed-size tuples and one final partial tuple."""
-    if size <= 0:
-        raise ValueError("batch size must be positive")
-    iterator = iter(items)
-    while batch := tuple(islice(iterator, size)):
-        yield batch
 
 
 def select_unseen_active(listings: Iterable[Listing], seen_ids: set[str]) -> tuple[Listing, ...]:
