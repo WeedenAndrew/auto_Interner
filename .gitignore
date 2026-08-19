@@ -23,6 +23,10 @@ build/
 .DS_Store
 Thumbs.db
 
+# Local agent state. CLAUDE.md at the repo root IS tracked; this directory is
+# not. It holds worktrees containing full repo copies, including a real .env.
+.claude/
+
 # Private runtime data. Keep only runtime/README.md tracked.
 runtime/*
 !runtime/README.md

@@ -1,19 +1,168 @@
 # Auto Interner
 
-A local, AI-assisted internship discovery and resume tailoring pipeline designed
-for one user on a Raspberry Pi. Auto Interner will find unseen listings, conservatively
-screen hard disqualifiers, prevent duplicate work, and create truthfully tailored DOCX
-resumes for human review.
+**One person's internship pipeline, running unattended on a Raspberry Pi.**
 
-> **Project status:** Phase 6 orchestration is complete. The repository
-> includes validated live source retrieval, protected posting fetches, deterministic
-> screening, portable output-path planning, current cycle six-month role
-> deduplication, a strict provider-neutral model boundary with an Anthropic adapter,
-> PII-separated truthfulness validation, template-preserving DOCX generation,
-> crash-aware reconciled state, non-overlapping run coordination, run summaries and
-> heartbeats, complete fixture execution, operator commands, and a hardened
-> multi-architecture Docker/Compose deployment. Raspberry Pi arm64 validation and the
-> required 24-hour soak remain pending on the target server.
+It finds listings you have not seen, screens the hard disqualifiers
+conservatively, refuses to apply to the same role twice, tailors your résumé to
+what is left, and hands you a document to submit yourself.
+
+Deliberately single-user. One résumé, one person, one industry. Every design
+choice below follows from that: local state, no accounts, no server, no
+multi-tenancy, and a machine that can sit on a shelf and run for a year.
+
+Generalising it for other people is a different project, and it is
+[Curat0r](https://github.com/WeedenAndrew/Curat0r).
+
+> **Status: complete and running.** 335 tests, full offline test gate,
+> multi-architecture Docker deployment.
+>
+> **Automatic submission is deliberately out of scope.** It violates the terms
+> of service of most application portals, and auto-submitted applications get
+> flagged as spam — which is worse than not applying. The expensive, error-prone
+> work is *finding, screening, and tailoring*; that is what this automates.
+> Submission is three minutes of human review per application, and keeping a
+> human at that step is correct design rather than an unfinished feature.
+
+**What it does**
+
+```
+snapshot → scan → fetch → deterministic screen → semantic screen
+        → role dedupe → validated rewrite → DOCX assembly → atomic commit
+```
+
+Two properties are unusual enough to call out:
+
+**It cannot lie about you.** The rewrite validator rejects any model output that
+alters a numeric claim, introduces a technology absent from your source resume,
+or escalates a stated proficiency. Truthfulness is enforced structurally, not
+requested in a prompt.
+
+**Your contact data never reaches the model.** It is extracted into a local-only
+block before any request is built, and the validator refuses any rewrite that
+reintroduces it.
+
+### `auto_interner.corpus` is scheduled to leave this repository
+
+A second tailoring strategy grew here: instead of letting a model write and then
+validating it, keep a corpus of blocks you wrote and *select* a subset, so
+nothing is ever authored on your behalf. Stronger guarantee, and it works.
+
+It is also not this project's job. It is corpus-driven, source-agnostic and
+built for arbitrary users, which is the definition of the other repository. It
+currently sits at 1,889 lines and 75 tests, imported by nothing on the live
+path, reachable only from scripts.
+
+It moves to [Curat0r](https://github.com/WeedenAndrew/Curat0r) as that project's
+selection core. Recorded here rather than quietly deleted, because a reader
+running `find` will notice the directory and deserves to know why it is there.
+
+## Worked example — one corpus, two live postings
+
+Two real Summer 2027 listings, pulled from the same public feed this project
+already ingests: a backend internship at Sentry and a mobile internship at
+TikTok. One corpus, one page each.
+
+```
+corpus  10 blocks / 29 lines      one page
+
+                                    Sentry                 TikTok
+                                    ---------------------- ----------------------
+  ********                          keep                   keep
+  ********                          keep                   keep
+  ********                          keep                   keep
+  Proficient Languages: Python, Ja  keep                   keep
+  Frameworks/Libraries: Flutter, P  keep                   keep
+  Auto Interner                     keep                   keep
+* Fantasy Blackjack                 keep                     . 
+* Goblin Flip                         .                    keep
+  Curat0r                             .                      . 
+  GAN Agent                           .                      . 
+
+                          coverage  83                     100
+                          evidence  15                     9
+                       unsupported  algorithms             none
+```
+
+The mobile posting keeps the Flutter game and drops the Python and TypeScript
+one. The backend posting does the reverse. Nothing was rewritten to achieve
+that — both are subsets of blocks the user wrote. Both postings are in
+[`docs/examples/`](docs/examples/) verbatim, as pulled.
+
+`********` marks a masked field: contact details, employers, university, and
+one client. Asterisks rather than substitutions on purpose, because a plausible
+replacement like "Insurance Services Client" reads as real content and
+misrepresents the document.
+
+### Read `evidence`, not `coverage`, to compare two postings
+
+TikTok scores 100% and Sentry 83%, but Sentry is the stronger application. The
+denominator of `coverage` is how many skills the posting happened to name,
+which is a fact about the writing. `evidence` — absolute requirement weight
+actually surfaced — is 15 against 9, and `is_comparable()` flags any posting too
+thin for its percentage to be set beside another's.
+
+### The corpus is the constraint, not the engine
+
+Run against the résumé alone — 8 blocks against a page that holds about the same
+— and the two postings produce nearly identical documents. Nothing competes, so
+nothing is chosen. Selection only becomes selection once the corpus is larger
+than the page.
+
+Those extra blocks came from README files in the user's own repositories, and
+they ship marked `_verified: false`. Building that corpus automatically is
+[Curat0r](https://github.com/WeedenAndrew/Curat0r); this repository is what
+consumes it.
+
+### The output can only ever be a subset of your own document
+
+`assemble_from_template` copies the base `.docx` and deletes paragraphs. It has
+no insert path, which means an unverified block cannot reach a finished document
+even by mistake — it can influence what is *kept*, and to appear it must first
+exist in the résumé you maintain. That is a stronger guarantee than a validator,
+because it is structural rather than checked.
+
+### It is your own file, not a rebuild
+
+The output is the base `.docx` copied with unselected paragraphs deleted. Font,
+margins, tab stops, heading rules and the GitHub hyperlinks all survive because
+nothing was touched. A generated document that is correct but looks nothing like
+the résumé you have been sending is a new document to proofread, not a tailored
+one.
+
+### Six structural rules run before coverage is considered
+
+| Rule | Why |
+|---|---|
+| Education in full | No posting lists a degree as a requirement, so coverage always drops it — from an internship application, where its absence is disqualifying |
+| At least two terms of experience | One job reads as no history, whatever the posting asked for |
+| At most two projects | Five reads as a list of hobbies rather than a claim about strengths. Three fit the line estimate and still spilled in Word, leaving one bullet alone on page two |
+| Exactly two bullets per project | Floor and ceiling both. Coverage alone gave one entry four bullets and rendered the next as a bare title, which reads as abandoned rather than deliberate |
+| Fill the page, or say why not | A résumé that stops two thirds down reads as thin, and typesetting cannot hide it |
+| Repository links sit on the project's title line, at the right margin | The position experience and education already use for location and dates. A link on its own line spends a line of a one-page budget on a URL |
+
+The link rule is layout, not content, and is held to that: whitespace may move,
+and a test asserts that nothing a reader would call a word changes. Getting
+there with literal spaces — as the source résumé did, with eighty-four of them —
+is not a position at all. It holds at exactly one font size and one margin, and
+overflowed anyway, wrapping the link onto the line it was padded to avoid.
+
+### Where the corpus came from
+
+Résumé sections plus public GitHub repositories, deduplicated. `Auto Interner`
+from the résumé and `auto_Interner` from GitHub are one project; the richer
+block wins.
+
+Screening drops what does not belong on a résumé, with a reason each time:
+
+```
+2 kept, 3 dropped
+  keep  auto_Interner        keep  Goblin-Flip
+  drop  neetcode-submissions  - exercise or interview practice, not a built thing
+  drop  WeedenAndrew          - your GitHub profile README, not a project
+  drop  bbit-learning-labs    - a fork - the work is someone else's unless you say otherwise
+```
+
+Full run: [`docs/examples/curated-resume.md`](docs/examples/curated-resume.md)
 
 ## Design goals
 
@@ -203,14 +352,14 @@ Windows and Linux. The default suite makes no live network, browser, or model ca
 - [Implementation roadmap](docs/roadmap.md)
 - [Configuration reference](docs/configuration.md)
 - [Architecture decisions](docs/decisions.md)
-- [Phase 0 traceability](docs/phase-0-traceability.md)
-- [Phase 1 traceability](docs/phase-1-traceability.md)
-- [Phase 2 traceability](docs/phase-2-traceability.md)
-- [Phase 3 traceability](docs/phase-3-traceability.md)
-- [Phase 4 traceability](docs/phase-4-traceability.md)
-- [Phase 5 traceability](docs/phase-5-traceability.md)
-- [Phase 6 traceability](docs/phase-6-traceability.md)
-- [Phase 7 traceability](docs/phase-7-traceability.md)
+- [Phase 0 traceability](docs/traceability/phase-0.md)
+- [Phase 1 traceability](docs/traceability/phase-1.md)
+- [Phase 2 traceability](docs/traceability/phase-2.md)
+- [Phase 3 traceability](docs/traceability/phase-3.md)
+- [Phase 4 traceability](docs/traceability/phase-4.md)
+- [Phase 5 traceability](docs/traceability/phase-5.md)
+- [Phase 6 traceability](docs/traceability/phase-6.md)
+- [Phase 7 traceability](docs/traceability/phase-7.md)
 - [Raspberry Pi deployment](docs/raspberry-pi.md)
 
 ## License

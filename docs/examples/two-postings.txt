@@ -1,0 +1,18 @@
+corpus  10 blocks / 29 lines      one page
+
+                                    Sentry                 TikTok
+                                    ---------------------- ----------------------
+  ********                          keep                   keep
+  ********                          keep                   keep
+  ********                          keep                   keep
+  Proficient Languages: Python, Ja  keep                   keep
+  Frameworks/Libraries: Flutter, P  keep                   keep
+  Auto Interner                     keep                   keep
+* Fantasy Blackjack                 keep                     . 
+* Goblin Flip                         .                    keep
+  Curat0r                             .                      . 
+  GAN Agent                           .                      . 
+
+                          coverage  83                     100
+                          evidence  15                     9
+                       unsupported  algorithms             none

@@ -1,0 +1,161 @@
+{
+  "blocks": [
+    {
+      "id": "pipeline",
+      "kind": "experience",
+      "title": "Backend / Integrations Engineer (Contract)",
+      "org": "Medicare Insurance Agency",
+      "dates": "2026",
+      "recency": 10,
+      "pinned": true,
+      "tags": [
+        "python",
+        "docker",
+        "rest",
+        "webhooks",
+        "etl",
+        "linux"
+      ],
+      "bullets": [
+        {
+          "text": "Built and shipped a production data pipeline integrating three insurance platforms, replacing manual policy re-entry for a live agency.",
+          "tags": [
+            "python",
+            "rest",
+            "etl"
+          ]
+        },
+        {
+          "text": "Designed an append-only raw event log plus a separate committed audit log, making every webhook payload replayable after a crash without duplicating rows.",
+          "tags": [
+            "etl",
+            "webhooks",
+            "observability"
+          ]
+        },
+        {
+          "text": "Deployed as three Docker containers with restart policies and automatic recovery from host reboot, running unattended on an ARM single-board server.",
+          "tags": [
+            "docker",
+            "linux"
+          ]
+        },
+        {
+          "text": "Wrote an idempotent record merge that reconciles sparse duplicate events without overwriting richer values from earlier events.",
+          "tags": [
+            "etl",
+            "python"
+          ]
+        },
+        {
+          "text": "Integrated a third-party CRM API including authentication, employee resolution, and multi-location account handling.",
+          "tags": [
+            "rest",
+            "api design"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "interner",
+      "kind": "project",
+      "title": "Auto Interner \u2014 truthful resume tailoring pipeline",
+      "dates": "2026",
+      "recency": 9,
+      "tags": [
+        "python",
+        "docker",
+        "pytest",
+        "unit testing",
+        "api design"
+      ],
+      "bullets": [
+        {
+          "text": "Built a 22k-line modular Python pipeline that screens job listings and generates tailored DOCX resumes, with 32 test modules and offline fakes at every external boundary.",
+          "tags": [
+            "python",
+            "pytest",
+            "unit testing"
+          ]
+        },
+        {
+          "text": "Designed a deterministic truthfulness validator that rejects any generated rewrite which alters a numeric claim, introduces a technology absent from the source, or escalates a stated proficiency level.",
+          "tags": [
+            "python",
+            "api design"
+          ]
+        },
+        {
+          "text": "Enforced a hard PII boundary: contact data is extracted into a local-only block and never included in any model request.",
+          "tags": [
+            "python"
+          ]
+        },
+        {
+          "text": "Wrote a provider-neutral model adapter with strict tool-response schemas re-validated locally, so the vendor can change without touching policy code.",
+          "tags": [
+            "api design",
+            "python"
+          ]
+        },
+        {
+          "text": "Packaged as a multi-architecture Docker image with crash-aware state reconciliation and non-overlapping run coordination.",
+          "tags": [
+            "docker",
+            "linux"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "goblin",
+      "kind": "project",
+      "title": "Goblin Flip \u2014 cross-platform Flutter game",
+      "dates": "2026",
+      "recency": 7,
+      "tags": [
+        "flutter",
+        "unit testing"
+      ],
+      "bullets": [
+        {
+          "text": "Built a 10k-line Flutter game shipping to Android and web, with automated gameplay, persistence, security, and accessibility test suites.",
+          "tags": [
+            "flutter",
+            "unit testing"
+          ]
+        },
+        {
+          "text": "Implemented authenticated local saves with rollback and replay protection so an interrupted session cannot be exploited to recover a lost wager.",
+          "tags": [
+            "flutter"
+          ]
+        },
+        {
+          "text": "Added screen-reader labels and larger-text layouts across the wager and charm menus.",
+          "tags": [
+            "flutter"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "skills",
+      "kind": "skill",
+      "title": "Python, SQL, Dart/Flutter, Docker, Linux, REST APIs, pytest, Git",
+      "recency": 5,
+      "tags": [
+        "python",
+        "sql",
+        "flutter",
+        "docker",
+        "linux",
+        "rest",
+        "pytest",
+        "git"
+      ],
+      "bullets": []
+    }
+  ],
+  "$comment": "Fictional demonstration corpus. Every claim here is invented for the offline demo and describes no real person."
+}

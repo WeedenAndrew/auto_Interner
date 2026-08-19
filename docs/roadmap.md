@@ -15,7 +15,20 @@ and matching tests pass; planned items remain labeled as planned.
 | 5 | PII separation, rewrite validator, DOCX patching | `F-RWR-*`, `F-DOC-*`, privacy and visual checks | Complete: fictional DOCX opens cleanly in Word |
 | 6 | Single-writer orchestration, state, lock, CLI | `F-ORC-*`, `F-CLI-*`, fault injection, reconciliation | Complete: full offline gate |
 | 7 | Arm64 image and Pi operations | container, arm64, restart, bind mount, resource, soak | Implementation complete; target gates pending |
-| 8 | Recruiter-facing proof | offline demo, diagram, evaluation results, claim audit | Planned |
+| 8 | Recruiter-facing proof | offline demo, worked example, claim audit | In progress: worked example shipped |
+
+## Automatic submission is out of scope
+
+Not a numbered phase, and not a gap. Automatic application submission violates
+the terms of service of most application portals, and auto-submitted
+applications get flagged as spam — worse than not applying at all.
+
+The expensive, error-prone work is finding, screening, and tailoring, and that
+is what this automates. Submission is three minutes of human review per
+application, and keeping a human at that step is correct design.
+
+The project is complete at Phase 7 plus recruiter-facing proof.
+
 
 After Phase 2, the source transport was extended with a hardened shallow Git cache and
 an unchanged-commit fast path. That extension passed a separate 216-test gate before
