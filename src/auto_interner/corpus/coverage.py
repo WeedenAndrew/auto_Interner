@@ -17,7 +17,7 @@ from auto_interner.corpus.selection import Selection
 @dataclass(frozen=True, slots=True)
 class RequirementStatus:
     requirement: Requirement
-    shown_in: tuple[str, ...]      # block ids surfaced in this render
+    shown_in: tuple[str, ...]  # block ids surfaced in this render
     available_in: tuple[str, ...]  # block ids in the corpus that could cover it
 
     @property
@@ -81,9 +81,7 @@ class CoverageReport:
         that posting happened to name, which is a fact about the writing and not
         about the candidate -- see `is_comparable`.
         """
-        total = sum(
-            max(s.requirement.weight for s in group) for _, group in self._groups()
-        )
+        total = sum(max(s.requirement.weight for s in group) for _, group in self._groups())
         if not total:
             return 1.0
         return self.evidence() / total

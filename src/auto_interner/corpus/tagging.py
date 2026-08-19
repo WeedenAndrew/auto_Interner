@@ -72,18 +72,18 @@ PHRASE_RULES: tuple[tuple[str, frozenset[str]], ...] = (
         frozenset({"reliability"}),
     ),
     (r"automat(?:ically|ion|ing|es|ed|e)", frozenset({"automation"})),
-    (r"unit tests?|integration tests?|test suites?|regression tests?",
-     frozenset({"automated testing", "test automation"})),
+    (
+        r"unit tests?|integration tests?|test suites?|regression tests?",
+        frozenset({"automated testing", "test automation"}),
+    ),
     (r"data pipelines?|etl\b", frozenset({"data pipelines"})),
-    (r"mobile|android|ios\b|app store|play store|on-device",
-     frozenset({"mobile development"})),
+    (r"mobile|android|ios\b|app store|play store|on-device", frozenset({"mobile development"})),
     (r"scrap(?:ing|er|ed|e)|crawl(?:ing|er|ed)?", frozenset({"web scraping"})),
     (r"\bgit\b|github|branch(?:es|ing)?|version control", frozenset({"version control"})),
     (r"concurren\w+|multithread\w+|thread(?:s|ing|ed)\b|async\w*", frozenset({"concurrency"})),
     (r"cach(?:ing|es|ed|e)", frozenset({"caching"})),
     (r"schema|data model(?:s|ling|ing)?", frozenset({"data modeling"})),
-    (r"latency|throughput|profil(?:e|ed|ing)|optimi[sz]\w+",
-     frozenset({"performance tuning"})),
+    (r"latency|throughput|profil(?:e|ed|ing)|optimi[sz]\w+", frozenset({"performance tuning"})),
 )
 
 _COMPILED: tuple[tuple[re.Pattern[str], frozenset[str]], ...] = tuple(
@@ -96,9 +96,7 @@ def _term_hits(text: str) -> list[TagHit]:
     hits: list[TagHit] = []
     lowered = text.casefold()
     for term in TAXONOMY:
-        match = re.search(
-            rf"(?<![\w.+#-]){re.escape(term)}(?![\w+#-])(?!\.\w)", lowered
-        )
+        match = re.search(rf"(?<![\w.+#-]){re.escape(term)}(?![\w+#-])(?!\.\w)", lowered)
         if match:
             hits.append(TagHit(normalize_tag(term), match.group(), "term"))
     return hits

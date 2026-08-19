@@ -59,10 +59,21 @@ _EVIDENCE_FOR: dict[str, frozenset[str]] = {
     "concurrency": frozenset({"threading"}),
     "containers": frozenset({"docker", "kubernetes"}),
     "data pipelines": frozenset({"airflow", "dbt", "etl", "pyspark", "spark"}),
-    "databases": frozenset({
-        "bigquery", "clickhouse", "dynamodb", "elasticsearch", "mongodb",
-        "mysql", "postgresql", "redis", "snowflake", "sql", "sqlalchemy",
-    }),
+    "databases": frozenset(
+        {
+            "bigquery",
+            "clickhouse",
+            "dynamodb",
+            "elasticsearch",
+            "mongodb",
+            "mysql",
+            "postgresql",
+            "redis",
+            "snowflake",
+            "sql",
+            "sqlalchemy",
+        }
+    ),
     "infrastructure": frozenset({"ansible", "kubernetes", "terraform"}),
     "machine learning": frozenset({"pytorch", "tensorflow"}),
     "message queues": frozenset({"celery", "kafka", "rabbitmq"}),
@@ -70,10 +81,18 @@ _EVIDENCE_FOR: dict[str, frozenset[str]] = {
     # not a term at all -- so a posting asking for iOS or Android could not see
     # a shipped Flutter app, and the one mobile project in the corpus lost the
     # page to a backend one.
-    "mobile development": frozenset({
-        "android", "dart", "flutter", "ios", "kotlin", "objective-c",
-        "react native", "swift",
-    }),
+    "mobile development": frozenset(
+        {
+            "android",
+            "dart",
+            "flutter",
+            "ios",
+            "kotlin",
+            "objective-c",
+            "react native",
+            "swift",
+        }
+    ),
     "monitoring": frozenset({"grafana", "observability", "prometheus"}),
     "test automation": frozenset({"pytest", "unit testing"}),
     "version control": frozenset({"bitbucket", "git", "github", "gitlab"}),
@@ -117,8 +136,7 @@ class Bullet:
     def metrics(self) -> tuple[str, ...]:
         """Numeric claims, for tamper detection by the rewriting validator."""
         return tuple(
-            "".join(m.group().casefold().split())
-            for m in _METRIC_PATTERN.finditer(self.text)
+            "".join(m.group().casefold().split()) for m in _METRIC_PATTERN.finditer(self.text)
         )
 
     @property

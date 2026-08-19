@@ -20,6 +20,7 @@ from auto_interner.corpus import (
     build_report,
     extract_requirements,
     load_corpus,
+    render_coverage,
     render_resume,
     select,
 )
@@ -27,7 +28,10 @@ from auto_interner.corpus.requirements import Priority
 
 DEMO_CORPUS = (
     Path(__file__).resolve().parents[2]
-    / "src" / "auto_interner" / "demo_data" / "fictional_corpus.json"
+    / "src"
+    / "auto_interner"
+    / "demo_data"
+    / "fictional_corpus.json"
 )
 
 BACKEND_POSTING = """
@@ -53,6 +57,7 @@ def blocks() -> tuple[Block, ...]:
 
 # ── The core invariant ───────────────────────────────────────────────────────
 
+
 def test_every_rendered_line_exists_verbatim_in_the_corpus(blocks: tuple[Block, ...]) -> None:
     requirements = extract_requirements(BACKEND_POSTING)
     rendered = render_resume(select(blocks, requirements, budget=30))
@@ -64,6 +69,7 @@ def test_every_rendered_line_exists_verbatim_in_the_corpus(blocks: tuple[Block, 
 
 
 # ── Requirement extraction ───────────────────────────────────────────────────
+
 
 def test_nice_to_have_header_governs_every_line_beneath_it() -> None:
     by_term = {r.term: r for r in extract_requirements(BACKEND_POSTING)}
@@ -81,10 +87,13 @@ def test_inline_cue_overrides_its_section() -> None:
 
 # ── Selection ────────────────────────────────────────────────────────────────
 
+
 def test_block_tags_do_not_suppress_later_bullets() -> None:
     """Crediting block tags per-bullet made bullet #1 appear to cover everything."""
     block = Block(
-        id="b", kind=BlockKind.EXPERIENCE, title="Engineer",
+        id="b",
+        kind=BlockKind.EXPERIENCE,
+        title="Engineer",
         tags=frozenset({"python", "docker"}),
         bullets=(
             Bullet("first", frozenset({"python"})),
@@ -98,8 +107,11 @@ def test_block_tags_do_not_suppress_later_bullets() -> None:
 
 def test_block_without_bullets_is_selectable() -> None:
     skills = Block(
-        id="s", kind=BlockKind.SKILL, title="Python, SQL",
-        tags=frozenset({"python", "sql"}), bullets=(),
+        id="s",
+        kind=BlockKind.SKILL,
+        title="Python, SQL",
+        tags=frozenset({"python", "sql"}),
+        bullets=(),
     )
     requirements = extract_requirements("Requirements:\n- python\n- sql\n")
     selection = select((skills,), requirements, budget=10)
@@ -126,29 +138,41 @@ def test_selection_keeps_different_blocks_for_a_different_posting() -> None:
     from auto_interner.corpus.selection import Shape
 
     backend_project = Block(
-        id="api", kind=BlockKind.PROJECT, title="Service", recency=9,
+        id="api",
+        kind=BlockKind.PROJECT,
+        title="Service",
+        recency=9,
         tags=frozenset({"python", "docker"}),
-        bullets=(Bullet("Built a python service", frozenset({"python"})),
-                 Bullet("Containerised it with docker", frozenset({"docker"}))),
+        bullets=(
+            Bullet("Built a python service", frozenset({"python"})),
+            Bullet("Containerised it with docker", frozenset({"docker"})),
+        ),
     )
     mobile_project = Block(
-        id="app", kind=BlockKind.PROJECT, title="Coin Flip", recency=8,
+        id="app",
+        kind=BlockKind.PROJECT,
+        title="Coin Flip",
+        recency=8,
         tags=frozenset({"flutter", "dart"}),
-        bullets=(Bullet("Shipped a flutter app", frozenset({"flutter"})),
-                 Bullet("Wrote unit tests for it", frozenset({"unit testing"}))),
+        bullets=(
+            Bullet("Shipped a flutter app", frozenset({"flutter"})),
+            Bullet("Wrote unit tests for it", frozenset({"unit testing"})),
+        ),
     )
     corpus = (backend_project, mobile_project)
     shape = Shape(min_experience=0, max_blocks_by_kind={"project": 1})
 
     backend = select(corpus, extract_requirements(BACKEND_POSTING), budget=12, shape=shape)
-    mobile = select(corpus, extract_requirements("Requirements:\n- Flutter\n"),
-                    budget=12, shape=shape)
+    mobile = select(
+        corpus, extract_requirements("Requirements:\n- Flutter\n"), budget=12, shape=shape
+    )
 
     assert [b.block.id for b in backend.blocks] == ["api"]
     assert [b.block.id for b in mobile.blocks] == ["app"]
 
 
 # ── Coverage and gaps ────────────────────────────────────────────────────────
+
 
 def test_unsupported_requirement_is_reported_not_filled(blocks: tuple[Block, ...]) -> None:
     requirements = extract_requirements("Requirements:\n- Python\n- Kafka\n- Airflow\n")
@@ -166,20 +190,29 @@ def test_score_is_bounded(blocks: tuple[Block, ...]) -> None:
 
 # ── Corpus validation ────────────────────────────────────────────────────────
 
+
 def test_duplicate_ids_rejected(tmp_path: Path) -> None:
     path = tmp_path / "corpus.json"
-    path.write_text(json.dumps({"blocks": [
-        {"id": "a", "kind": "project", "title": "X"},
-        {"id": "a", "kind": "project", "title": "Y"},
-    ]}), encoding="utf-8")
+    path.write_text(
+        json.dumps(
+            {
+                "blocks": [
+                    {"id": "a", "kind": "project", "title": "X"},
+                    {"id": "a", "kind": "project", "title": "Y"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
     with pytest.raises(CorpusError, match="Duplicate"):
         load_corpus(path)
 
 
 def test_unknown_kind_rejected(tmp_path: Path) -> None:
     path = tmp_path / "corpus.json"
-    path.write_text(json.dumps({"blocks": [{"id": "a", "kind": "nonsense", "title": "X"}]}),
-                    encoding="utf-8")
+    path.write_text(
+        json.dumps({"blocks": [{"id": "a", "kind": "nonsense", "title": "X"}]}), encoding="utf-8"
+    )
     with pytest.raises(CorpusError, match="kind must be one of"):
         load_corpus(path)
 
@@ -207,12 +240,18 @@ def test_budget_is_filled_even_when_nothing_else_matches_the_posting() -> None:
     dropped — from an internship resume, where omitting it is disqualifying.
     """
     education = Block(
-        id="edu", kind=BlockKind.EDUCATION, title="BSc Computer Science",
-        recency=9, bullets=(Bullet("Expected May 2028"),),
+        id="edu",
+        kind=BlockKind.EDUCATION,
+        title="BSc Computer Science",
+        recency=9,
+        bullets=(Bullet("Expected May 2028"),),
     )
     relevant = Block(
-        id="job", kind=BlockKind.EXPERIENCE, title="Engineer",
-        recency=10, tags=frozenset({"python"}),
+        id="job",
+        kind=BlockKind.EXPERIENCE,
+        title="Engineer",
+        recency=10,
+        tags=frozenset({"python"}),
         bullets=(Bullet("Shipped a thing", frozenset({"python"})),),
     )
     requirements = extract_requirements("Requirements:\n- Python\n")
@@ -226,15 +265,25 @@ def test_education_is_included_in_full_regardless_of_the_posting() -> None:
     from auto_interner.corpus.selection import Shape
 
     education = Block(
-        id="edu", kind=BlockKind.EDUCATION, title="BSc Computer Science",
+        id="edu",
+        kind=BlockKind.EDUCATION,
+        title="BSc Computer Science",
         bullets=(Bullet("Expected May 2028"), Bullet("Coursework: Data Structures")),
     )
     job = Block(
-        id="j", kind=BlockKind.EXPERIENCE, title="Engineer", recency=9,
-        tags=frozenset({"python"}), bullets=(Bullet("Shipped", frozenset({"python"})),),
+        id="j",
+        kind=BlockKind.EXPERIENCE,
+        title="Engineer",
+        recency=9,
+        tags=frozenset({"python"}),
+        bullets=(Bullet("Shipped", frozenset({"python"})),),
     )
-    selection = select((education, job), extract_requirements("Requirements:\n- Python\n"),
-                       budget=30, shape=Shape(min_experience=0))
+    selection = select(
+        (education, job),
+        extract_requirements("Requirements:\n- Python\n"),
+        budget=30,
+        shape=Shape(min_experience=0),
+    )
     edu = next(s for s in selection.blocks if s.block.id == "edu")
     assert len(edu.bullets) == 2, "education must appear in full, not trimmed"
 
@@ -244,12 +293,21 @@ def test_at_least_two_experience_entries_are_kept() -> None:
     from auto_interner.corpus.selection import Shape
 
     jobs = tuple(
-        Block(id=f"j{i}", kind=BlockKind.EXPERIENCE, title=f"Role {i}", recency=10 - i,
-              bullets=(Bullet(f"did thing {i}"),))
+        Block(
+            id=f"j{i}",
+            kind=BlockKind.EXPERIENCE,
+            title=f"Role {i}",
+            recency=10 - i,
+            bullets=(Bullet(f"did thing {i}"),),
+        )
         for i in range(3)
     )
-    selection = select(jobs, extract_requirements("Requirements:\n- Kubernetes\n"),
-                       budget=30, shape=Shape(min_experience=2))
+    selection = select(
+        jobs,
+        extract_requirements("Requirements:\n- Kubernetes\n"),
+        budget=30,
+        shape=Shape(min_experience=2),
+    )
     kept = [s for s in selection.blocks if s.block.kind is BlockKind.EXPERIENCE]
     assert len(kept) >= 2
     assert [s.block.id for s in kept][:2] == ["j0", "j1"], "most recent first"
@@ -259,11 +317,19 @@ def test_underfill_is_reported_rather_than_padded() -> None:
     """A thin resume is a corpus problem. Say so; do not widen the margins."""
     from auto_interner.corpus.selection import Shape
 
-    thin = Block(id="a", kind=BlockKind.PROJECT, title="One thing",
-                 tags=frozenset({"python"}),
-                 bullets=(Bullet("did a thing", frozenset({"python"})),))
-    selection = select((thin,), extract_requirements("Requirements:\n- Python\n"),
-                       budget=40, shape=Shape(min_experience=0))
+    thin = Block(
+        id="a",
+        kind=BlockKind.PROJECT,
+        title="One thing",
+        tags=frozenset({"python"}),
+        bullets=(Bullet("did a thing", frozenset({"python"})),),
+    )
+    selection = select(
+        (thin,),
+        extract_requirements("Requirements:\n- Python\n"),
+        budget=40,
+        shape=Shape(min_experience=0),
+    )
 
     assert selection.underfilled
     assert "corpus is exhausted, not the page" in selection.fill_report()
@@ -273,18 +339,28 @@ def test_a_full_page_is_not_reported_as_short() -> None:
     from auto_interner.corpus.selection import Shape
 
     blocks = tuple(
-        Block(id=f"b{i}", kind=BlockKind.PROJECT, title=f"Project {i}",
-              recency=i, tags=frozenset({"python"}),
-              bullets=(Bullet(f"built thing {i}", frozenset({"python"})),))
+        Block(
+            id=f"b{i}",
+            kind=BlockKind.PROJECT,
+            title=f"Project {i}",
+            recency=i,
+            tags=frozenset({"python"}),
+            bullets=(Bullet(f"built thing {i}", frozenset({"python"})),),
+        )
         for i in range(6)
     )
-    selection = select(blocks, extract_requirements("Requirements:\n- Python\n"),
-                       budget=12, shape=Shape(min_experience=0, max_blocks_by_kind={}))
+    selection = select(
+        blocks,
+        extract_requirements("Requirements:\n- Python\n"),
+        budget=12,
+        shape=Shape(min_experience=0, max_blocks_by_kind={}),
+    )
     assert not selection.underfilled
     assert "full" in selection.fill_report()
 
 
 # ── template assembly ────────────────────────────────────────────────────────
+
 
 def _blocks_from_resume(path: Path) -> tuple[Block, ...]:
     """Build a corpus out of a resume, which is how the real flow works.
@@ -298,15 +374,26 @@ def _blocks_from_resume(path: Path) -> tuple[Block, ...]:
     doc = read_resume(path)
     blocks: list[Block] = []
     for section in doc.sections:
-        kind = {"experience": BlockKind.EXPERIENCE, "projects": BlockKind.PROJECT,
-                "education": BlockKind.EDUCATION}.get(
-                    section.name.casefold(), BlockKind.SKILL)
-        bullets = tuple(Bullet(p.source_text, frozenset({"python"}))
-                        for p in section.paragraphs if len(p.source_text) > 40)
+        kind = {
+            "experience": BlockKind.EXPERIENCE,
+            "projects": BlockKind.PROJECT,
+            "education": BlockKind.EDUCATION,
+        }.get(section.name.casefold(), BlockKind.SKILL)
+        bullets = tuple(
+            Bullet(p.source_text, frozenset({"python"}))
+            for p in section.paragraphs
+            if len(p.source_text) > 40
+        )
         if bullets:
-            blocks.append(Block(id=section.name.casefold().replace(" ", "-"),
-                                kind=kind, title=section.name,
-                                tags=frozenset({"python"}), bullets=bullets))
+            blocks.append(
+                Block(
+                    id=section.name.casefold().replace(" ", "-"),
+                    kind=kind,
+                    title=section.name,
+                    tags=frozenset({"python"}),
+                    bullets=bullets,
+                )
+            )
     return tuple(blocks)
 
 
@@ -322,7 +409,10 @@ def test_template_assembly_keeps_only_selected_content(tmp_path: Path) -> None:
 
     base = (
         Path(__file__).resolve().parents[2]
-        / "src" / "auto_interner" / "demo_data" / "fictional_base_resume.docx"
+        / "src"
+        / "auto_interner"
+        / "demo_data"
+        / "fictional_base_resume.docx"
     )
     source = read_resume(base)
     blocks = _blocks_from_resume(base)
@@ -343,11 +433,15 @@ def test_template_output_invents_nothing(tmp_path: Path) -> None:
 
     base = (
         Path(__file__).resolve().parents[2]
-        / "src" / "auto_interner" / "demo_data" / "fictional_base_resume.docx"
+        / "src"
+        / "auto_interner"
+        / "demo_data"
+        / "fictional_base_resume.docx"
     )
     source = read_resume(base)
-    selection = select(_blocks_from_resume(base),
-                       extract_requirements("Requirements:\n- Python\n"), budget=40)
+    selection = select(
+        _blocks_from_resume(base), extract_requirements("Requirements:\n- Python\n"), budget=40
+    )
     out = tmp_path / "out.docx"
     assemble_from_template(source, selection, out)
 
@@ -364,7 +458,10 @@ def test_template_assembly_refuses_to_overwrite(tmp_path: Path) -> None:
 
     base = (
         Path(__file__).resolve().parents[2]
-        / "src" / "auto_interner" / "demo_data" / "fictional_base_resume.docx"
+        / "src"
+        / "auto_interner"
+        / "demo_data"
+        / "fictional_base_resume.docx"
     )
     dest = tmp_path / "out.docx"
     dest.write_text("already here", encoding="utf-8")
@@ -437,8 +534,10 @@ def test_a_sentence_beginning_with_a_cue_is_not_eaten_as_a_header() -> None:
 def test_a_specific_tool_evidences_the_general_capability() -> None:
     """A posting says 'databases'; a resume says 'MongoDB'."""
     assert "databases" in Bullet("used mongo", frozenset({"mongodb"})).tags
-    assert "containers" in Block(id="b", kind=BlockKind.PROJECT, title="t",
-                                 tags=frozenset({"docker"})).tags
+    assert (
+        "containers"
+        in Block(id="b", kind=BlockKind.PROJECT, title="t", tags=frozenset({"docker"})).tags
+    )
 
 
 def test_subsumption_keeps_the_original_tag() -> None:
@@ -456,10 +555,20 @@ def test_subsumption_does_not_invent_adjacent_skills() -> None:
 def test_a_subsumed_requirement_is_not_reported_as_a_gap() -> None:
     """The whole point: 'databases' must not appear as unsupported."""
     blocks = (
-        Block(id="e", kind=BlockKind.EDUCATION, title="Uni", tags=frozenset({"python"}),
-              bullets=(Bullet("studied things", frozenset({"python"})),)),
-        Block(id="j", kind=BlockKind.EXPERIENCE, title="Job", tags=frozenset({"mongodb"}),
-              bullets=(Bullet("stored records in mongodb", frozenset({"mongodb"})),)),
+        Block(
+            id="e",
+            kind=BlockKind.EDUCATION,
+            title="Uni",
+            tags=frozenset({"python"}),
+            bullets=(Bullet("studied things", frozenset({"python"})),),
+        ),
+        Block(
+            id="j",
+            kind=BlockKind.EXPERIENCE,
+            title="Job",
+            tags=frozenset({"mongodb"}),
+            bullets=(Bullet("stored records in mongodb", frozenset({"mongodb"})),),
+        ),
     )
     from auto_interner.corpus.selection import Shape
 
@@ -614,13 +723,24 @@ def _report_for(posting: str):
     from auto_interner.corpus.selection import Shape
 
     blocks = (
-        Block(id="edu", kind=BlockKind.EDUCATION, title="BSc",
-              tags=frozenset({"data structures"}),
-              bullets=(Bullet("Coursework: data structures", frozenset({"data structures"})),)),
-        Block(id="job", kind=BlockKind.EXPERIENCE, title="Engineer",
-              tags=frozenset({"python", "java", "mongodb"}),
-              bullets=(Bullet("shipped python and java on mongodb",
-                              frozenset({"python", "java", "mongodb"})),)),
+        Block(
+            id="edu",
+            kind=BlockKind.EDUCATION,
+            title="BSc",
+            tags=frozenset({"data structures"}),
+            bullets=(Bullet("Coursework: data structures", frozenset({"data structures"})),),
+        ),
+        Block(
+            id="job",
+            kind=BlockKind.EXPERIENCE,
+            title="Engineer",
+            tags=frozenset({"python", "java", "mongodb"}),
+            bullets=(
+                Bullet(
+                    "shipped python and java on mongodb", frozenset({"python", "java", "mongodb"})
+                ),
+            ),
+        ),
     )
     requirements = extract_requirements(posting)
     selection = select(blocks, requirements, budget=20, shape=Shape(min_experience=0))
@@ -673,9 +793,13 @@ def test_covering_one_alternate_satisfies_the_whole_group() -> None:
     from auto_interner.corpus.selection import Shape
 
     blocks = (
-        Block(id="job", kind=BlockKind.EXPERIENCE, title="Engineer",
-              tags=frozenset({"python"}),
-              bullets=(Bullet("shipped python", frozenset({"python"})),)),
+        Block(
+            id="job",
+            kind=BlockKind.EXPERIENCE,
+            title="Engineer",
+            tags=frozenset({"python"}),
+            bullets=(Bullet("shipped python", frozenset({"python"})),),
+        ),
     )
     posting = "Requirements:\n- Strong skills in one or more of Java, Go, C++, or Python.\n"
     requirements = extract_requirements(posting)
@@ -691,9 +815,13 @@ def test_an_alternation_counts_once_toward_the_score() -> None:
     from auto_interner.corpus.selection import Shape
 
     blocks = (
-        Block(id="job", kind=BlockKind.EXPERIENCE, title="Engineer",
-              tags=frozenset({"python"}),
-              bullets=(Bullet("shipped python", frozenset({"python"})),)),
+        Block(
+            id="job",
+            kind=BlockKind.EXPERIENCE,
+            title="Engineer",
+            tags=frozenset({"python"}),
+            bullets=(Bullet("shipped python", frozenset({"python"})),),
+        ),
     )
     posting = (
         "Requirements:\n"
@@ -817,13 +945,20 @@ def test_a_skills_line_can_be_filled_in_when_the_page_has_room() -> None:
     from auto_interner.corpus.selection import Shape
 
     job = Block(
-        id="job", kind=BlockKind.EXPERIENCE, title="Engineer", recency=9,
+        id="job",
+        kind=BlockKind.EXPERIENCE,
+        title="Engineer",
+        recency=9,
         tags=frozenset({"python"}),
         bullets=(Bullet("shipped python", frozenset({"python"})),),
     )
     skills = Block(
-        id="skills", kind=BlockKind.SKILL, title="Docker, SQL, Git",
-        recency=5, tags=frozenset({"docker", "sql", "git"}), bullets=(),
+        id="skills",
+        kind=BlockKind.SKILL,
+        title="Docker, SQL, Git",
+        recency=5,
+        tags=frozenset({"docker", "sql", "git"}),
+        bullets=(),
     )
     requirements = extract_requirements("Requirements:\n- Python\n- Docker\n")
     selection = select((job, skills), requirements, budget=20, shape=Shape(min_experience=0))
@@ -846,11 +981,22 @@ def test_a_bulletless_project_is_not_filled_back_in() -> None:
     """
     from auto_interner.corpus.selection import Shape
 
-    job = Block(id="job", kind=BlockKind.EXPERIENCE, title="Engineer", recency=9,
-                tags=frozenset({"python"}),
-                bullets=(Bullet("shipped python", frozenset({"python"})),))
-    empty = Block(id="stub", kind=BlockKind.PROJECT, title="Half-Finished Thing",
-                  recency=8, tags=frozenset({"python"}), bullets=())
+    job = Block(
+        id="job",
+        kind=BlockKind.EXPERIENCE,
+        title="Engineer",
+        recency=9,
+        tags=frozenset({"python"}),
+        bullets=(Bullet("shipped python", frozenset({"python"})),),
+    )
+    empty = Block(
+        id="stub",
+        kind=BlockKind.PROJECT,
+        title="Half-Finished Thing",
+        recency=8,
+        tags=frozenset({"python"}),
+        bullets=(),
+    )
     requirements = extract_requirements("Requirements:\n- Python\n")
     selection = select((job, empty), requirements, budget=30, shape=Shape(min_experience=0))
     assert "stub" not in {s.block.id for s in selection.blocks}
@@ -877,7 +1023,10 @@ def test_a_tie_is_broken_by_relevance_not_by_length() -> None:
     )
     short_and_not = Bullet("Wrote some docs", frozenset())
     block = Block(
-        id="p", kind=BlockKind.PROJECT, title="Thing", tags=frozenset({"python"}),
+        id="p",
+        kind=BlockKind.PROJECT,
+        title="Thing",
+        tags=frozenset({"python"}),
         bullets=(long_and_relevant, short_and_not),
     )
     requirements = extract_requirements(
@@ -895,7 +1044,10 @@ def test_author_order_breaks_a_genuine_tie() -> None:
     first = Bullet("Did the thing the user put first", frozenset())
     second = Bullet("Second", frozenset())
     block = Block(
-        id="p", kind=BlockKind.PROJECT, title="Thing", tags=frozenset({"python"}),
+        id="p",
+        kind=BlockKind.PROJECT,
+        title="Thing",
+        tags=frozenset({"python"}),
         bullets=(first, second),
     )
     requirements = extract_requirements("Requirements:\n- Python\n")
@@ -904,7 +1056,7 @@ def test_author_order_breaks_a_genuine_tie() -> None:
 
 
 def test_a_mobile_posting_can_see_a_flutter_project() -> None:
-    """"Mobile development" was not a term, so mobile work was invisible.
+    """ "Mobile development" was not a term, so mobile work was invisible.
 
     A posting asking for iOS or Android named no framework the corpus held,
     and the one mobile project lost the page to a backend one.
@@ -912,12 +1064,18 @@ def test_a_mobile_posting_can_see_a_flutter_project() -> None:
     from auto_interner.corpus.selection import Shape
 
     mobile = Block(
-        id="app", kind=BlockKind.PROJECT, title="Coin Flip", recency=8,
+        id="app",
+        kind=BlockKind.PROJECT,
+        title="Coin Flip",
+        recency=8,
         tags=frozenset({"flutter", "dart"}),
         bullets=(Bullet("Shipped an animated game", frozenset({"flutter"})),),
     )
     backend = Block(
-        id="api", kind=BlockKind.PROJECT, title="Service", recency=9,
+        id="api",
+        kind=BlockKind.PROJECT,
+        title="Service",
+        recency=9,
         tags=frozenset({"python"}),
         bullets=(Bullet("Built a service", frozenset({"python"})),),
     )
@@ -930,8 +1088,7 @@ def test_a_mobile_posting_can_see_a_flutter_project() -> None:
     requirements = extract_requirements(posting)
     assert "mobile development" in {r.term for r in requirements}
 
-    selection = select((mobile, backend), requirements, budget=4,
-                       shape=Shape(min_experience=0))
+    selection = select((mobile, backend), requirements, budget=4, shape=Shape(min_experience=0))
     assert "app" in {s.block.id for s in selection.blocks}
 
 
@@ -965,11 +1122,18 @@ def test_every_project_shows_two_bullets_when_it_has_them() -> None:
     from auto_interner.corpus.selection import Shape
 
     projects = tuple(
-        Block(id=f"p{i}", kind=BlockKind.PROJECT, title=f"Project {i}", recency=9 - i,
-              tags=frozenset({"python"}),
-              bullets=(Bullet(f"first thing {i}", frozenset({"python"})),
-                       Bullet(f"second thing {i}", frozenset()),
-                       Bullet(f"third thing {i}", frozenset())))
+        Block(
+            id=f"p{i}",
+            kind=BlockKind.PROJECT,
+            title=f"Project {i}",
+            recency=9 - i,
+            tags=frozenset({"python"}),
+            bullets=(
+                Bullet(f"first thing {i}", frozenset({"python"})),
+                Bullet(f"second thing {i}", frozenset()),
+                Bullet(f"third thing {i}", frozenset()),
+            ),
+        )
         for i in range(3)
     )
     requirements = extract_requirements("Requirements:\n- Python\n")
@@ -982,21 +1146,42 @@ def test_a_project_with_one_bullet_still_shows_one() -> None:
     """A floor, not padding. There is nothing to pad with."""
     from auto_interner.corpus.selection import Shape
 
-    thin = Block(id="p", kind=BlockKind.PROJECT, title="Thin", tags=frozenset({"python"}),
-                 bullets=(Bullet("only thing", frozenset({"python"})),))
-    selection = select((thin,), extract_requirements("Requirements:\n- Python\n"),
-                       budget=20, shape=Shape(min_experience=0))
+    thin = Block(
+        id="p",
+        kind=BlockKind.PROJECT,
+        title="Thin",
+        tags=frozenset({"python"}),
+        bullets=(Bullet("only thing", frozenset({"python"})),),
+    )
+    selection = select(
+        (thin,),
+        extract_requirements("Requirements:\n- Python\n"),
+        budget=20,
+        shape=Shape(min_experience=0),
+    )
     assert len(selection.blocks[0].bullets) == 1
 
 
 def test_the_rule_is_configurable_and_off_by_default_for_other_kinds() -> None:
     from auto_interner.corpus.selection import Shape
 
-    job = Block(id="j", kind=BlockKind.EXPERIENCE, title="Job", tags=frozenset({"python"}),
-                bullets=(Bullet("a", frozenset({"python"})), Bullet("b", frozenset()),
-                         Bullet("c", frozenset())))
-    selection = select((job,), extract_requirements("Requirements:\n- Python\n"),
-                       budget=20, shape=Shape(min_experience=0, bullets_by_kind={}))
+    job = Block(
+        id="j",
+        kind=BlockKind.EXPERIENCE,
+        title="Job",
+        tags=frozenset({"python"}),
+        bullets=(
+            Bullet("a", frozenset({"python"})),
+            Bullet("b", frozenset()),
+            Bullet("c", frozenset()),
+        ),
+    )
+    selection = select(
+        (job,),
+        extract_requirements("Requirements:\n- Python\n"),
+        budget=20,
+        shape=Shape(min_experience=0, bullets_by_kind={}),
+    )
     assert len(selection.blocks[0].bullets) == 1
 
 
@@ -1078,14 +1263,22 @@ def test_only_two_projects_reach_the_page() -> None:
     from auto_interner.corpus.selection import Shape
 
     projects = tuple(
-        Block(id=f"p{i}", kind=BlockKind.PROJECT, title=f"Project {i}", recency=9 - i,
-              tags=frozenset({"python"}),
-              bullets=(Bullet(f"one {i}", frozenset({"python"})),
-                       Bullet(f"two {i}", frozenset())))
+        Block(
+            id=f"p{i}",
+            kind=BlockKind.PROJECT,
+            title=f"Project {i}",
+            recency=9 - i,
+            tags=frozenset({"python"}),
+            bullets=(Bullet(f"one {i}", frozenset({"python"})), Bullet(f"two {i}", frozenset())),
+        )
         for i in range(6)
     )
-    selection = select(projects, extract_requirements("Requirements:\n- Python\n"),
-                       budget=60, shape=Shape(min_experience=0))
+    selection = select(
+        projects,
+        extract_requirements("Requirements:\n- Python\n"),
+        budget=60,
+        shape=Shape(min_experience=0),
+    )
     kept = [s for s in selection.blocks if s.block.kind is BlockKind.PROJECT]
     assert len(kept) == 2
     assert all(len(s.bullets) == 2 for s in kept)
@@ -1095,14 +1288,28 @@ def test_the_fill_pass_does_not_deepen_one_project_past_the_others() -> None:
     """Uniformity is the point; leftover budget must not break it."""
     from auto_interner.corpus.selection import Shape
 
-    rich = Block(id="rich", kind=BlockKind.PROJECT, title="Rich", recency=9,
-                 tags=frozenset({"python"}),
-                 bullets=tuple(Bullet(f"thing {i}", frozenset({"python"})) for i in range(5)))
-    lean = Block(id="lean", kind=BlockKind.PROJECT, title="Lean", recency=8,
-                 tags=frozenset({"python"}),
-                 bullets=(Bullet("a", frozenset({"python"})), Bullet("b", frozenset())))
-    selection = select((rich, lean), extract_requirements("Requirements:\n- Python\n"),
-                       budget=60, shape=Shape(min_experience=0))
+    rich = Block(
+        id="rich",
+        kind=BlockKind.PROJECT,
+        title="Rich",
+        recency=9,
+        tags=frozenset({"python"}),
+        bullets=tuple(Bullet(f"thing {i}", frozenset({"python"})) for i in range(5)),
+    )
+    lean = Block(
+        id="lean",
+        kind=BlockKind.PROJECT,
+        title="Lean",
+        recency=8,
+        tags=frozenset({"python"}),
+        bullets=(Bullet("a", frozenset({"python"})), Bullet("b", frozenset())),
+    )
+    selection = select(
+        (rich, lean),
+        extract_requirements("Requirements:\n- Python\n"),
+        budget=60,
+        shape=Shape(min_experience=0),
+    )
     assert {len(s.bullets) for s in selection.blocks} == {2}
 
 
@@ -1121,3 +1328,141 @@ def test_capacity_is_biased_toward_underfilling() -> None:
     document = _Document()
     typography = current_typography(document)
     assert capacity(document, typography) < capacity(document, typography, safety=1.0)
+
+
+# --- rendering -------------------------------------------------------------
+#
+# The three renderers are public API and were the least covered module in the
+# package at 41%, which is what dropped the whole project under the 85% gate.
+# They are also the surface a user actually reads, so untested output is a
+# worse gap here than the number suggests.
+
+
+def _rendered_fixture():
+    from auto_interner.corpus.selection import Shape
+
+    blocks = (
+        Block(
+            id="edu",
+            kind=BlockKind.EDUCATION,
+            title="BSc Computer Science",
+            org="A University",
+            dates="2024-2028",
+            tags=frozenset({"data structures"}),
+            bullets=(Bullet("Coursework: data structures", frozenset({"data structures"})),),
+        ),
+        Block(
+            id="job",
+            kind=BlockKind.EXPERIENCE,
+            title="Engineer",
+            recency=9,
+            tags=frozenset({"python"}),
+            bullets=(Bullet("Shipped a python service", frozenset({"python"})),),
+        ),
+    )
+    posting = "Requirements:\n- Python and data structures.\n- Experience with Kafka.\n"
+    requirements = extract_requirements(posting)
+    selection = select(blocks, requirements, budget=20, shape=Shape(min_experience=0))
+    return blocks, requirements, selection
+
+
+def test_rendered_resume_groups_by_kind_and_carries_org_and_dates() -> None:
+    _, _, selection = _rendered_fixture()
+    text = render_resume(selection)
+    assert "EDUCATION" in text and "EXPERIENCE" in text
+    assert "A University" in text
+    assert "(2024-2028)" in text
+    assert "  • Shipped a python service" in text
+
+
+def test_provenance_names_the_requirement_behind_every_bullet() -> None:
+    from auto_interner.corpus.render import render_provenance
+
+    _, _, selection = _rendered_fixture()
+    text = render_provenance(selection)
+    assert "PROVENANCE" in text
+    assert "covers:" in text and "text:" in text
+    assert "python" in text
+
+
+def test_provenance_says_so_when_a_bullet_covered_nothing() -> None:
+    """A bullet kept for shape rather than coverage must not look justified."""
+    from auto_interner.corpus.render import render_provenance
+    from auto_interner.corpus.selection import Shape
+
+    block = Block(
+        id="p",
+        kind=BlockKind.PROJECT,
+        title="Thing",
+        tags=frozenset({"python"}),
+        bullets=(Bullet("first", frozenset({"python"})), Bullet("second", frozenset())),
+    )
+    selection = select(
+        (block,),
+        extract_requirements("Requirements:\n- Python\n"),
+        budget=20,
+        shape=Shape(min_experience=0),
+    )
+    assert "(narrative continuity)" in render_provenance(selection)
+
+
+def test_provenance_truncates_a_long_bullet() -> None:
+    from auto_interner.corpus.render import render_provenance
+    from auto_interner.corpus.selection import Shape
+
+    long_text = "Built " + "a very long description " * 6
+    block = Block(
+        id="p",
+        kind=BlockKind.PROJECT,
+        title="Thing",
+        tags=frozenset({"python"}),
+        bullets=(Bullet(long_text, frozenset({"python"})),),
+    )
+    selection = select(
+        (block,),
+        extract_requirements("Requirements:\n- Python\n"),
+        budget=20,
+        shape=Shape(min_experience=0),
+    )
+    assert "…" in render_provenance(selection)
+
+
+def test_coverage_report_names_surfaced_gaps_and_the_required_ones() -> None:
+    blocks, requirements, selection = _rendered_fixture()
+    text = render_coverage(build_report(blocks, requirements, selection))
+    assert "COVERAGE" in text
+    assert "Surfaced:" in text
+    assert "GAPS" in text and "kafka" in text
+    assert "stated as required" in text
+    assert "no amount of rewording fixes it" in text
+
+
+def test_coverage_report_lists_what_was_cut_for_length() -> None:
+    """`missed` means you have it and the budget squeezed it out."""
+    from auto_interner.corpus.selection import Shape
+
+    blocks = (
+        Block(
+            id="a",
+            kind=BlockKind.PROJECT,
+            title="A",
+            recency=9,
+            tags=frozenset({"python"}),
+            bullets=(Bullet("python work", frozenset({"python"})),),
+        ),
+        Block(
+            id="b",
+            kind=BlockKind.PROJECT,
+            title="B",
+            recency=8,
+            tags=frozenset({"kubernetes"}),
+            bullets=(Bullet("kubernetes work", frozenset({"kubernetes"})),),
+        ),
+    )
+    requirements = extract_requirements("Requirements:\n- Python\n- Kubernetes\n")
+    selection = select(
+        blocks, requirements, budget=2, shape=Shape(min_experience=0, max_blocks_by_kind={})
+    )
+    report = build_report(blocks, requirements, selection)
+    if report.missed:
+        assert "cut for length" in render_coverage(report)

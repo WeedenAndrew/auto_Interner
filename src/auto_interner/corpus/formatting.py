@@ -120,9 +120,7 @@ def current_typography(document: DocxDocument) -> Typography:
 _SAFETY = 0.88
 
 
-def capacity(
-    document: DocxDocument, typography: Typography, *, safety: float = _SAFETY
-) -> int:
+def capacity(document: DocxDocument, typography: Typography, *, safety: float = _SAFETY) -> int:
     """How many rendered lines one page holds at these settings."""
     section = document.sections[0]
     usable_pt = (
@@ -138,9 +136,7 @@ def capacity(
 def estimate_lines(document: DocxDocument, typography: Typography) -> int:
     """Rendered line count, wrapping long paragraphs the way the page will."""
     section = document.sections[0]
-    usable_in = (
-        section.page_width - section.left_margin - section.right_margin
-    ) / _EMU_PER_INCH
+    usable_in = (section.page_width - section.left_margin - section.right_margin) / _EMU_PER_INCH
     chars = max(
         20,
         int(usable_in * _POINTS_PER_INCH / (typography.font_pt * _AVERAGE_CHAR_WIDTH_EM)),

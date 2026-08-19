@@ -75,7 +75,7 @@ def render_coverage(report: CoverageReport) -> str:
         lines.append("GAPS — nothing in your corpus supports these:")
         for status in report.gaps:
             lines.append(f"  [{status.requirement.priority.value:<9}] {status.requirement.term}")
-            lines.append(f"       posting said: \"{status.requirement.evidence[:90]}\"")
+            lines.append(f'       posting said: "{status.requirement.evidence[:90]}"')
         lines.append("")
         required = report.required_gaps()
         if required:

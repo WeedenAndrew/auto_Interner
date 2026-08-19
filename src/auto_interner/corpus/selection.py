@@ -31,8 +31,11 @@ class SelectedBlock:
 
     @property
     def covers(self) -> frozenset[str]:
-        return self.header_covers.union(*(b.covers for b in self.bullets)) if self.bullets \
+        return (
+            self.header_covers.union(*(b.covers for b in self.bullets))
+            if self.bullets
             else self.header_covers
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,14 +54,10 @@ class Shape:
     """
 
     min_experience: int = 2
-    complete_kinds: frozenset[str] = field(
-        default_factory=lambda: frozenset({"education"})
-    )
+    complete_kinds: frozenset[str] = field(default_factory=lambda: frozenset({"education"}))
     """Kinds included in full — every block, every bullet, never trimmed."""
 
-    max_blocks_by_kind: dict[str, int] = field(
-        default_factory=lambda: {"project": 2}
-    )
+    max_blocks_by_kind: dict[str, int] = field(default_factory=lambda: {"project": 2})
     """How many blocks of this kind may appear at all.
 
     Filling the page to the last line is not the same as making it good. Once
@@ -74,9 +73,7 @@ class Shape:
     competes, and the two postings produced near-identical documents again.
     """
 
-    bullets_by_kind: dict[str, int] = field(
-        default_factory=lambda: {"project": 2}
-    )
+    bullets_by_kind: dict[str, int] = field(default_factory=lambda: {"project": 2})
     """Bullets a block of this kind shows — both floor and ceiling.
 
     Coverage alone gives projects a ragged shape: one earns four bullets, the
@@ -206,8 +203,10 @@ def _plan_block(
     # on the page looks worse than omitting it. Allowing any bulletless block
     # here let a stub project outbid a real one on cost, because a header is
     # cheaper than a header plus evidence.
-    if not chosen and not block.bullets and (
-        block.kind is not BlockKind.SKILL or not header_covers
+    if (
+        not chosen
+        and not block.bullets
+        and (block.kind is not BlockKind.SKILL or not header_covers)
     ):
         return None
     if not chosen and block.bullets and not header_covers:
@@ -263,8 +262,14 @@ def select(
 
     # Pinned blocks are structural (current role, degree) and bypass scoring.
     for block in [b for b in pool if b.pinned]:
-        plan = _plan_block(block, req_index, covered, max_bullets_per_block, budget - used,
-                           shape.bullets_by_kind.get(block.kind.value, 0))
+        plan = _plan_block(
+            block,
+            req_index,
+            covered,
+            max_bullets_per_block,
+            budget - used,
+            shape.bullets_by_kind.get(block.kind.value, 0),
+        )
         pool.remove(block)
         if plan is None:
             continue
@@ -284,8 +289,14 @@ def select(
         for block in pool:
             if at_capacity(block.kind.value):
                 continue
-            plan = _plan_block(block, req_index, covered, max_bullets_per_block, budget - used,
-                               shape.bullets_by_kind.get(block.kind.value, 0))
+            plan = _plan_block(
+                block,
+                req_index,
+                covered,
+                max_bullets_per_block,
+                budget - used,
+                shape.bullets_by_kind.get(block.kind.value, 0),
+            )
             if plan is None or plan.marginal_weight <= 0:
                 continue
             key = (plan.marginal_weight / plan.cost, block.recency)
@@ -298,10 +309,17 @@ def select(
         used += best.cost
         pool.remove(best.block)
 
-    selected, used = _fill(selected, pool, req_index, covered, budget, used,
-                           max_bullets_per_block,
-                           bullets_by_kind=shape.bullets_by_kind,
-                           max_blocks_by_kind=shape.max_blocks_by_kind)
+    selected, used = _fill(
+        selected,
+        pool,
+        req_index,
+        covered,
+        budget,
+        used,
+        max_bullets_per_block,
+        bullets_by_kind=shape.bullets_by_kind,
+        max_blocks_by_kind=shape.max_blocks_by_kind,
+    )
 
     order = {"experience": 0, "project": 1, "skill": 2, "education": 3}
     selected.sort(key=lambda s: (order.get(s.block.kind.value, 9), -s.block.recency))
@@ -355,12 +373,19 @@ def _fill(
         # Option B: introduce a new block.
         for block in pool:
             limit = max_blocks_by_kind.get(block.kind.value)
-            if limit is not None and sum(
-                1 for s in selected if s.block.kind.value == block.kind.value
-            ) >= limit:
+            if (
+                limit is not None
+                and sum(1 for s in selected if s.block.kind.value == block.kind.value) >= limit
+            ):
                 continue
-            plan = _plan_block(block, requirements, covered, max_bullets, budget - used,
-                               bullets_by_kind.get(block.kind.value, 0))
+            plan = _plan_block(
+                block,
+                requirements,
+                covered,
+                max_bullets,
+                budget - used,
+                bullets_by_kind.get(block.kind.value, 0),
+            )
             if plan is None:
                 # _plan_block rejects zero-coverage blocks; build a header-only
                 # fallback so a relevant block can still enter on affinity.
@@ -379,15 +404,16 @@ def _fill(
                     # meant to remove.
                     if block.kind is not BlockKind.SKILL:
                         continue
-                    plan = SelectedBlock(
-                        block, (), frozenset(), 0, block.header_cost
-                    )
+                    plan = SelectedBlock(block, (), frozenset(), 0, block.header_cost)
                 else:
                     first = block.bullets[0]
                     if used + block.header_cost + first.cost > budget:
                         continue
                     plan = SelectedBlock(
-                        block, (SelectedBullet(first, frozenset()),), frozenset(), 0,
+                        block,
+                        (SelectedBullet(first, frozenset()),),
+                        frozenset(),
+                        0,
                         block.header_cost + first.cost,
                     )
             score = (_affinity(block.all_tags, requirements), block.recency)
@@ -396,7 +422,6 @@ def _fill(
 
         if best_payload is None or best_score is None or best_score[0] <= 0:
             break
-
 
         if best_kind == "bullet":
             index, bullet = best_payload
@@ -418,8 +443,17 @@ def _fill(
             used += plan.cost
             pool.remove(plan.block)
 
-    return _fill_by_recency(selected, pool, requirements, covered, budget, used,
-                            max_bullets, bullets_by_kind, max_blocks_by_kind)
+    return _fill_by_recency(
+        selected,
+        pool,
+        requirements,
+        covered,
+        budget,
+        used,
+        max_bullets,
+        bullets_by_kind,
+        max_blocks_by_kind,
+    )
 
 
 def _fill_by_recency(
@@ -454,9 +488,10 @@ def _fill_by_recency(
         # one not honouring the shape caps -- so six projects reached the page
         # through it while the two passes above were correctly holding three.
         limit = max_blocks_by_kind.get(block.kind.value)
-        if limit is not None and sum(
-            1 for s in selected if s.block.kind.value == block.kind.value
-        ) >= limit:
+        if (
+            limit is not None
+            and sum(1 for s in selected if s.block.kind.value == block.kind.value) >= limit
+        ):
             continue
         exact = bullets_by_kind.get(block.kind.value)
         ceiling = min(max_bullets, exact) if exact else max_bullets

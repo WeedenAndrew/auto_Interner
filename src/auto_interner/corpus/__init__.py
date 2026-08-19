@@ -20,10 +20,22 @@ from auto_interner.corpus.selection import Selection, select
 from auto_interner.corpus.tagging import TagHit, explain, tag_text
 
 __all__ = [
-    "Block", "BlockKind", "Bullet", "CorpusError", "load_corpus",
-    "CoverageReport", "build_report",
-    "Priority", "Requirement", "extract_requirements",
-    "TagHit", "tag_text", "explain",
-    "Selection", "select",
-    "render_resume", "render_coverage", "render_provenance",
+    "Block",
+    "BlockKind",
+    "Bullet",
+    "CorpusError",
+    "load_corpus",
+    "CoverageReport",
+    "build_report",
+    "Priority",
+    "Requirement",
+    "extract_requirements",
+    "TagHit",
+    "tag_text",
+    "explain",
+    "Selection",
+    "select",
+    "render_resume",
+    "render_coverage",
+    "render_provenance",
 ]

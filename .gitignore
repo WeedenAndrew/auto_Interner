@@ -37,3 +37,13 @@ runtime/*
 !src/auto_interner/demo_data/*.docx
 *.pdf
 browser-profile/
+
+# Personal workflow helpers and agent notes. They live on disk and keep working;
+# they are not part of the product and do not belong in a public tree.
+CLAUDE.md
+COMMIT.cmd
+CLEANUP.cmd
+commit-ready.ps1
+FINALISE.cmd
+DIAGNOSE-SMOKE.cmd
+smoke-log.txt

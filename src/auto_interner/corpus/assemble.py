@@ -151,8 +151,7 @@ def inline_trailing_links(document: Document) -> int:
     width = section.page_width - section.left_margin - section.right_margin
     right_margin_twips = round(width / 914400 * 1440)
     return sum(
-        inline_trailing_link(paragraph, right_margin_twips)
-        for paragraph in document.paragraphs
+        inline_trailing_link(paragraph, right_margin_twips) for paragraph in document.paragraphs
     )
 
 
@@ -222,10 +221,10 @@ def assemble_from_template(
             continue
         text = paragraph.text.strip()
         if not seen_heading:
-            kept += 1          # contact block, above the first heading
+            kept += 1  # contact block, above the first heading
             continue
         if not text:
-            kept += 1          # spacing
+            kept += 1  # spacing
             continue
         if text in keep_text:
             kept += 1
@@ -244,9 +243,12 @@ def assemble_from_template(
     for paragraph in list(document.paragraphs):
         if paragraph.text.strip():
             continue
-        numbered = paragraph._p.find(
-            ".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numPr"
-        ) is not None
+        numbered = (
+            paragraph._p.find(
+                ".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numPr"
+            )
+            is not None
+        )
         if numbered or "List" in (paragraph.style.name or ""):
             _drop(paragraph)
             removed += 1
