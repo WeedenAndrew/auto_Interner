@@ -19,7 +19,7 @@ from auto_interner.documents.assembler import (
 from auto_interner.documents.template_reader import ResumeDocument, read_resume
 from auto_interner.models import Listing
 from auto_interner.paths import OutputCollisionError, OutputPathPlanner
-from auto_interner.rewriting.service import validate_rewrite
+from auto_interner.rewriting.service import ValidatedRewritePlan, validate_rewrite
 
 pytestmark = [pytest.mark.unit, pytest.mark.privacy]
 NOW = datetime(2027, 1, 2, 3, 4, tzinfo=UTC)
@@ -47,7 +47,7 @@ def _paragraph_id(resume: ResumeDocument, phrase: str) -> str:
     )
 
 
-def _plan(resume: ResumeDocument, *, reorder: bool = True) -> object:
+def _plan(resume: ResumeDocument, *, reorder: bool = True) -> ValidatedRewritePlan:
     order = (
         ["Technical Skills", "Experience", "Projects", "Education"]
         if reorder
@@ -132,6 +132,7 @@ def test_f_doc_005_page_geometry_styles_and_bold_runs_are_preserved(tmp_path: Pa
     )
     source_role = next(p for p in source.paragraphs if "Northstar Fictional" in p.text)
     generated_role = next(p for p in generated.paragraphs if "Northstar Fictional" in p.text)
+    assert generated_role.style is not None and source_role.style is not None
     assert generated_role.style.name == source_role.style.name
     assert generated_role.runs[0].bold == source_role.runs[0].bold is True
 

@@ -182,7 +182,13 @@ def validate_rewrite(document: ResumeDocument, raw: object) -> ValidatedRewriteP
         if original is None:
             raise UnsupportedRewriteError("Rewrite references an unknown paragraph")
         if not original.rewritable:
-            raise UnsupportedRewriteError("Contact or hyperlink paragraphs cannot be rewritten")
+            # Covers three cases now: contact data, a hyperlink, or a paragraph
+            # outside the experience and education sections, which are the only
+            # ones offered for rewriting.
+            raise UnsupportedRewriteError(
+                "Only experience and education paragraphs without contact data "
+                "or a hyperlink may be rewritten"
+            )
         if contains_pii(text):
             raise UnsupportedRewriteError("Rewrite introduced contact information")
         if _metrics(text) != _metrics(original.source_text):

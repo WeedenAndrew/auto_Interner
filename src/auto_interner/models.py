@@ -44,6 +44,7 @@ class ScreeningCategory(StrEnum):
     RECRUITING_TERM = "recruiting_term"
     DEGREE_LEVEL = "degree_level"
     ROLE_CATEGORY = "role_category"
+    EMPLOYER_TYPE = "employer_type"
 
 
 class EvidenceDecision(StrEnum):

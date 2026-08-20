@@ -31,6 +31,19 @@ _REQUIRED_HEADING_GROUPS = (
     frozenset({"experience", "professional experience", "work experience"}),
     frozenset({"education"}),
 )
+
+# Only these sections are offered to the rewriter. The contact block is already
+# outside `sections` entirely and never reaches a model, so the tailorable
+# surface is experience and education alone.
+#
+# Everything else -- projects, skills, coursework -- keeps its heading so
+# `section_order` can still place it, but its paragraph text is neither sent nor
+# replaceable. That is most of the payload for no tailoring value: a skills line
+# cannot be rephrased without either inventing a technology or saying the same
+# thing differently, and both are rejected downstream anyway.
+_REWRITABLE_SECTION_HEADINGS = frozenset(
+    {"experience", "professional experience", "work experience", "education"}
+)
 _EMAIL_PATTERN = re.compile(r"(?<![\w.+-])[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}(?![\w-])")
 _PHONE_PATTERN = re.compile(r"(?<!\w)(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}(?!\w)")
 _URL_PATTERN = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>()]+")
@@ -82,11 +95,21 @@ class ResumeDocument:
         }
 
     def model_payload(self) -> dict[str, object]:
-        """Return only sanitized, non-contact resume sections for a rewrite call."""
-        return {
-            "sections": [
+        """Return only sanitized, non-contact resume sections for a rewrite call.
+
+        A section outside `_REWRITABLE_SECTION_HEADINGS` is named but empty. The
+        name has to survive, because `validate_rewrite` requires `section_order`
+        to list every section exactly once; the paragraph text does not, because
+        nothing in that section may be replaced. Dropping it is the single
+        largest reduction available to this request.
+        """
+        sections: list[dict[str, object]] = []
+        for section in self.sections:
+            in_scope = section.name.strip().casefold() in _REWRITABLE_SECTION_HEADINGS
+            sections.append(
                 {
                     "name": section.name,
+                    "rewritable_section": in_scope,
                     "paragraphs": [
                         {
                             "paragraph_id": paragraph.paragraph_id,
@@ -94,11 +117,12 @@ class ResumeDocument:
                             "rewritable": paragraph.rewritable,
                         }
                         for paragraph in section.paragraphs
-                    ],
+                    ]
+                    if in_scope
+                    else [],
                 }
-                for section in self.sections
-            ]
-        }
+            )
+        return {"sections": sections}
 
 
 def contains_pii(text: str) -> bool:
@@ -169,12 +193,13 @@ def read_resume(path: Path) -> ResumeDocument:
             continue
         has_pii = contains_pii(text)
         has_hyperlink = _contains_hyperlink(paragraph)
+        in_scope = current_name.strip().casefold() in _REWRITABLE_SECTION_HEADINGS
         current_paragraphs.append(
             ResumeParagraph(
                 paragraph_id=f"p-{index}",
                 source_text=text,
                 model_text=redact_pii(text),
-                rewritable=not has_pii and not has_hyperlink,
+                rewritable=in_scope and not has_pii and not has_hyperlink,
             )
         )
     if current_name is not None:

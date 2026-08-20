@@ -29,10 +29,11 @@ def _listing(
     terms: tuple[str, ...] = ("Summer 2027",),
     degrees: tuple[str, ...] = ("Bachelor's",),
     category: str | None = "Software",
+    company_name: str = "Pine Labs",
 ) -> Listing:
     return Listing(
         id="listing-1",
-        company_name="Pine Labs",
+        company_name=company_name,
         title="Software Engineering Intern",
         url="https://example.invalid/jobs/1",
         locations=("Austin, TX",),
@@ -102,6 +103,34 @@ def test_every_failing_rule_is_recorded_not_just_the_first() -> None:
         ScreeningCategory.DEGREE_LEVEL,
         ScreeningCategory.ROLE_CATEGORY,
     }
+
+
+@pytest.mark.parametrize(
+    "company_name",
+    [
+        "Pennsylvania State University",
+        "University of Texas at Austin",
+        "Ivy Tech Community College",
+        "Georgia Institute of Technology",
+    ],
+)
+def test_a_university_employer_is_out_of_scope(company_name: str) -> None:
+    assert _categories(_listing(company_name=company_name)) == {ScreeningCategory.EMPLOYER_TYPE}
+
+
+@pytest.mark.parametrize(
+    "company_name",
+    ["Pine Labs", "Axon", "Trillium", "Veolia"],
+)
+def test_an_ordinary_employer_is_unaffected(company_name: str) -> None:
+    assert _screen(_listing(company_name=company_name)) is None
+
+
+def test_the_employer_rule_names_what_it_dropped() -> None:
+    """This rule can discard real work, so the log has to show the employer."""
+    decision = _screen(_listing(company_name="Carnegie Mellon University"))
+    assert decision is not None
+    assert "Carnegie Mellon University" in decision.evidence[0].evidence
 
 
 def test_the_wanted_season_follows_the_configured_year() -> None:

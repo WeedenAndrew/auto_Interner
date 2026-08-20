@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import signal
 import threading
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -53,8 +54,11 @@ class FakePipeline:
         self.status = status
         self.store = store
 
-    def run(self, listings: object) -> PipelineRunResult:
-        snapshot = tuple(listings)  # type: ignore[call-overload]
+    # Iterable[Listing], matching the PipelineRunner protocol. Declared as
+    # `object` the fake type-checked while accepting things the real runner
+    # never receives, which is the drift this gate exists to catch.
+    def run(self, listings: Iterable[Listing]) -> PipelineRunResult:
+        snapshot = tuple(listings)
         outcome = PipelineOutcome(
             listing_id=snapshot[0].id,
             status=self.status,

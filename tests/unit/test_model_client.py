@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 import pytest
@@ -41,13 +42,28 @@ class FakeResponse:
 class FakeConnection:
     response: FakeResponse
     error: Exception | None = None
-    request_args: tuple[object, ...] | None = None
-    request_kwargs: dict[str, object] | None = None
+    method: str | None = None
+    url: str | None = None
+    body: bytes | None = None
+    headers: Mapping[str, str] | None = None
     closed: bool = False
 
-    def request(self, *args: object, **kwargs: object) -> None:
-        self.request_args = args
-        self.request_kwargs = kwargs
+    # Mirrors HttpsConnection.request exactly rather than swallowing *args and
+    # **kwargs. A fake that accepts anything cannot detect the adapter calling
+    # the boundary wrongly, which is the one thing this test exists to check.
+    def request(
+        self,
+        method: str,
+        url: str,
+        /,
+        *,
+        body: bytes,
+        headers: Mapping[str, str],
+    ) -> None:
+        self.method = method
+        self.url = url
+        self.body = body
+        self.headers = headers
         if self.error is not None:
             raise self.error
 
@@ -58,12 +74,14 @@ class FakeConnection:
         self.closed = True
 
 
-def _client(connection: FakeConnection, **kwargs: object) -> AnthropicMessagesClient:
+def _client(
+    connection: FakeConnection, *, max_response_bytes: int = 256_000
+) -> AnthropicMessagesClient:
     return AnthropicMessagesClient(
         api_key="fictional-key",
         model="fictional-model",
+        max_response_bytes=max_response_bytes,
         connection_factory=lambda host, timeout: connection,
-        **kwargs,
     )
 
 
@@ -81,14 +99,14 @@ def test_forces_named_strict_tool_at_fixed_endpoint() -> None:
 
     assert _call(_client(connection)) == {"safe": True}
 
-    assert connection.request_args == ("POST", "/v1/messages")
-    assert connection.request_kwargs is not None
-    request = json.loads(connection.request_kwargs["body"])
+    assert (connection.method, connection.url) == ("POST", "/v1/messages")
+    assert connection.body is not None
+    request = json.loads(connection.body)
     assert request["model"] == "fictional-model"
     assert request["tool_choice"] == {"type": "tool", "name": "screen"}
     assert request["tools"][0]["strict"] is True
-    headers = connection.request_kwargs["headers"]
-    assert headers["x-api-key"] == "fictional-key"
+    assert connection.headers is not None
+    assert connection.headers["x-api-key"] == "fictional-key"
     assert connection.closed
 
 

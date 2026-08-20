@@ -31,10 +31,53 @@ class StructuredModelClient(Protocol):
         """Return the structured input from exactly one requested tool call."""
 
 
-ConnectionFactory = Callable[[str, float], http.client.HTTPSConnection]
+class HttpsResponse(Protocol):
+    """The part of an HTTP response this adapter reads.
+
+    Parameters are positional-only. A Protocol otherwise matches on parameter
+    *name*, and the stdlib response calls its read length `amt` while a local
+    fake would naturally call it `amount` -- a difference no caller can observe,
+    since this adapter passes it positionally.
+    """
+
+    @property
+    def status(self) -> int: ...
+
+    def getheader(self, name: str, /) -> str | None: ...
+
+    def read(self, amount: int, /) -> bytes: ...
 
 
-def _default_connection_factory(host: str, timeout: float) -> http.client.HTTPSConnection:
+class HttpsConnection(Protocol):
+    """The three connection methods this adapter uses.
+
+    Narrowed to a Protocol rather than named as `http.client.HTTPSConnection`,
+    which the injected factory is otherwise typed to return. A concrete return
+    type makes this boundary un-fakeable in the type checker even though it is
+    duck-typed at runtime, and every other external boundary here -- the host
+    resolver, the HTTP transport, the Git runner, the browser session -- is a
+    Protocol for exactly that reason.
+    """
+
+    def request(
+        self,
+        method: str,
+        url: str,
+        /,
+        *,
+        body: bytes,
+        headers: Mapping[str, str],
+    ) -> None: ...
+
+    def getresponse(self) -> HttpsResponse: ...
+
+    def close(self) -> None: ...
+
+
+ConnectionFactory = Callable[[str, float], HttpsConnection]
+
+
+def _default_connection_factory(host: str, timeout: float) -> HttpsConnection:
     return http.client.HTTPSConnection(host, timeout=timeout)
 
 

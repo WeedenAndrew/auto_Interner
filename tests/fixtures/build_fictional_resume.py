@@ -138,7 +138,7 @@ def build() -> Path:
     properties.subject = "Public automated test data"
     properties.comments = "Contains no real identity or employment history."
     TARGET.parent.mkdir(parents=True, exist_ok=True)
-    document.save(TARGET)
+    document.save(str(TARGET))
     return TARGET
 
 

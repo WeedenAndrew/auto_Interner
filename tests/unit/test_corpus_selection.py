@@ -11,12 +11,17 @@ import json
 from pathlib import Path
 
 import pytest
+from docx.document import Document as DocxDocument
+from docx.text.paragraph import Paragraph
 
 from auto_interner.corpus import (
     Block,
     BlockKind,
     Bullet,
     CorpusError,
+    CoverageReport,
+    Requirement,
+    Selection,
     build_report,
     extract_requirements,
     load_corpus,
@@ -589,7 +594,7 @@ def test_a_subsumed_requirement_is_not_reported_as_a_gap() -> None:
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 
-def _paragraph_with_padded_link(padding: str = " " * 40):
+def _paragraph_with_padded_link(padding: str = " " * 40) -> tuple[DocxDocument, Paragraph]:
     """A project title, whitespace padding, then a hyperlink. The real shape."""
     from docx import Document as _Document
 
@@ -606,7 +611,7 @@ def _paragraph_with_padded_link(padding: str = " " * 40):
     return document, paragraph
 
 
-def _tab_count(paragraph) -> int:
+def _tab_count(paragraph: Paragraph) -> int:
     return len(paragraph._p.findall(f".//{_W}tab"))
 
 
@@ -719,7 +724,7 @@ _SPECIFIC = (
 )
 
 
-def _report_for(posting: str):
+def _report_for(posting: str) -> CoverageReport:
     from auto_interner.corpus.selection import Shape
 
     blocks = (
@@ -1188,7 +1193,7 @@ def test_the_rule_is_configurable_and_off_by_default_for_other_kinds() -> None:
 # --- one-page fitting ------------------------------------------------------
 
 
-def _doc_with(lines: int):
+def _doc_with(lines: int) -> DocxDocument:
     from docx import Document as _Document
 
     document = _Document()
@@ -1338,7 +1343,7 @@ def test_capacity_is_biased_toward_underfilling() -> None:
 # worse gap here than the number suggests.
 
 
-def _rendered_fixture():
+def _rendered_fixture() -> tuple[tuple[Block, ...], tuple[Requirement, ...], Selection]:
     from auto_interner.corpus.selection import Shape
 
     blocks = (

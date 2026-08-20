@@ -88,7 +88,11 @@ skip_covered = true
 python_version = "3.12"
 strict = true
 mypy_path = "src"
-packages = ["auto_interner"]
+# Tests are checked too. Left out, the fakes drift from the protocols they stand
+# in for: FakeModel took a dict where StructuredModelClient takes a Mapping, and
+# a fake runner took `object` where PipelineRunner takes Iterable[Listing]. A
+# fake looser than its contract passes its own test while hiding a real break.
+files = ["src", "tests"]
 
 # PyYAML is an optional corpus format, imported inside a try/except that raises
 # a CorpusError telling the operator to install it or convert to JSON. Declaring

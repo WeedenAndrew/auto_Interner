@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
+from typing import cast
 
 import pytest
 from docx import Document
@@ -114,3 +115,31 @@ def test_unreadable_or_missing_docx_is_rejected(tmp_path: Path) -> None:
     invalid.write_bytes(b"not a DOCX")
     with pytest.raises(ResumeStructureError, match="readable"):
         read_resume(invalid)
+
+
+def test_only_experience_and_education_reach_the_rewriter() -> None:
+    """Projects and skills keep their heading but send no text and cannot change.
+
+    `validate_rewrite` requires section_order to name every section exactly
+    once, so the headings must survive the trim even though their bodies do not.
+    """
+    resume = read_resume(FIXTURE)
+    payload = resume.model_payload()
+    sections = cast(list[dict[str, object]], payload["sections"])
+    by_name = {cast(str, section["name"]): section for section in sections}
+
+    assert set(by_name) == set(resume.section_names)
+    for name in ("Experience", "Education"):
+        assert by_name[name]["rewritable_section"] is True
+        assert by_name[name]["paragraphs"]
+    for name in ("Projects", "Technical Skills"):
+        assert by_name[name]["rewritable_section"] is False
+        assert by_name[name]["paragraphs"] == []
+
+    out_of_scope = [
+        paragraph
+        for section in resume.sections
+        if section.name in {"Projects", "Technical Skills"}
+        for paragraph in section.paragraphs
+    ]
+    assert out_of_scope and not any(paragraph.rewritable for paragraph in out_of_scope)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -47,7 +48,7 @@ class FakeModel:
         self,
         *,
         tool_name: str,
-        input_schema: dict[str, object],
+        input_schema: Mapping[str, object],
         system_prompt: str,
         user_prompt: str,
     ) -> object:

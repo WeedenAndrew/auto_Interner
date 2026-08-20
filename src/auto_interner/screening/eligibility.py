@@ -20,6 +20,7 @@ an internship that silently never gets applied to.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -52,6 +53,23 @@ _TARGET_CATEGORIES = frozenset(
         "ai/ml/data",
         "data science, ai & machine learning",
     }
+)
+
+
+# University-employed research and departmental assistant work. On the live
+# snapshot this is 54 of 339 otherwise-eligible listings, and reads as
+# "Undergraduate Cartographer", "Maps and Geospatial Assistant" and "Physics
+# Department - Research Support" -- campus jobs that upstream files under
+# software categories.
+#
+# This is the least conservative rule here and the only one that can plausibly
+# discard real work: a university IT department or a research lab does post
+# genuine software internships. It is a deliberate personal-scope choice rather
+# than a safety property, and the disqualification is recorded with the employer
+# name so the decision log shows exactly what it cost.
+_UNIVERSITY_EMPLOYER = re.compile(
+    r"(universit|college|polytechnic|institute of technology|school of)",
+    re.IGNORECASE,
 )
 
 
@@ -102,6 +120,16 @@ def _category_rule(listing: Listing) -> EligibilityRule | None:
     )
 
 
+def _employer_rule(listing: Listing) -> EligibilityRule | None:
+    company = listing.company_name.strip()
+    if not company or not _UNIVERSITY_EMPLOYER.search(company):
+        return None
+    return EligibilityRule(
+        category=ScreeningCategory.EMPLOYER_TYPE,
+        evidence=f"university employer, out of personal scope: {company}",
+    )
+
+
 def screen_listing_eligibility(
     listing: Listing,
     *,
@@ -117,6 +145,7 @@ def screen_listing_eligibility(
         _term_rule(listing, recruiting_year),
         _degree_rule(listing),
         _category_rule(listing),
+        _employer_rule(listing),
     )
     fired = [rule for rule in rules if rule is not None]
     if not fired:

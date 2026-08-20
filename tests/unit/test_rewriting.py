@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -119,10 +120,13 @@ def test_f_rwr_006_unknown_and_duplicate_paragraph_ids_are_rejected(
     with pytest.raises(UnsupportedRewriteError, match="unknown"):
         validate_rewrite(resume, raw)
 
-    paragraph_id = _paragraph_id(resume, "documented API")
+    paragraph_id = _paragraph_id(resume, "fictional data pipeline")
     raw["replacements"] = [
-        {"paragraph_id": paragraph_id, "replacement": "Created 25 documented API tests."},
-        {"paragraph_id": paragraph_id, "replacement": "Documented 25 API tests."},
+        {
+            "paragraph_id": paragraph_id,
+            "replacement": "Wrote SQL and Git tests, used by 4 teammates.",
+        },
+        {"paragraph_id": paragraph_id, "replacement": "Tested a pipeline used by 4 teammates."},
     ]
     with pytest.raises(RewriteResponseError, match="at most once"):
         validate_rewrite(resume, raw)
@@ -174,8 +178,8 @@ def test_f_rwr_011_adjacent_technology_cannot_be_invented(
     raw = _valid(resume)
     raw["replacements"] = [
         {
-            "paragraph_id": _paragraph_id(resume, "documented API"),
-            "replacement": f"Created 25 test scenarios and a documented {technology} API.",
+            "paragraph_id": _paragraph_id(resume, "fictional data pipeline"),
+            "replacement": f"Wrote SQL checks on {technology} for 4 teammates.",
         }
     ]
 
@@ -202,11 +206,8 @@ def test_f_rwr_013_proficiency_escalation_is_rejected(resume: ResumeDocument) ->
     raw = _valid(resume)
     raw["replacements"] = [
         {
-            "paragraph_id": _paragraph_id(resume, "Languages:"),
-            "replacement": (
-                "Expert Languages: Python, Java, SQL, JavaScript | Tools: Git, Docker, Linux | "
-                "Frameworks: Flask"
-            ),
+            "paragraph_id": _paragraph_id(resume, "fictional data pipeline"),
+            "replacement": "Wrote SQL checks with expert Git usage for 4 teammates.",
         }
     ]
 
@@ -218,8 +219,8 @@ def test_f_rwr_014_contact_information_cannot_be_introduced(resume: ResumeDocume
     raw = _valid(resume)
     raw["replacements"] = [
         {
-            "paragraph_id": _paragraph_id(resume, "documented API"),
-            "replacement": "Created 25 API tests; email person@example.invalid.",
+            "paragraph_id": _paragraph_id(resume, "fictional data pipeline"),
+            "replacement": "Wrote SQL checks for 4 teammates; email person@example.invalid.",
         }
     ]
 
@@ -236,7 +237,7 @@ class FakeModel:
         self,
         *,
         tool_name: str,
-        input_schema: dict[str, object],
+        input_schema: Mapping[str, object],
         system_prompt: str,
         user_prompt: str,
     ) -> object:
