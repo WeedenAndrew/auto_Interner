@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 import tempfile
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
@@ -185,7 +186,12 @@ def _validate_snapshot_path(snapshot_path: str) -> None:
 
 
 def _lock_file(handle: BinaryIO) -> None:
-    if os.name == "nt":
+    # `sys.platform`, not `os.name`. Both are correct at runtime, but mypy only
+    # narrows on sys.platform, and typeshed hides every msvcrt attribute behind
+    # `sys.platform == "win32"`. Written as os.name, the Linux leg of the CI
+    # matrix analyses this branch anyway and fails with "Module has no attribute
+    # locking". Changing it back reintroduces a failure Windows never sees.
+    if sys.platform == "win32":
         import msvcrt
 
         handle.seek(0)
@@ -201,7 +207,7 @@ def _lock_file(handle: BinaryIO) -> None:
 
 
 def _unlock_file(handle: BinaryIO) -> None:
-    if os.name == "nt":
+    if sys.platform == "win32":  # see _lock_file
         import msvcrt
 
         handle.seek(0)
