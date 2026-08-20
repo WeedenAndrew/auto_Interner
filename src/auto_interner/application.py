@@ -36,6 +36,7 @@ from auto_interner.rewriting.service import (
     request_validated_rewrite,
 )
 from auto_interner.scanner import iter_unseen_windows
+from auto_interner.screening.eligibility import screen_listing_eligibility
 from auto_interner.screening.keywords import screen_posting_text
 from auto_interner.screening.location import LocationScreenStatus, screen_locations
 from auto_interner.screening.semantic import SemanticResponseError, screen_posting_semantically
@@ -66,6 +67,7 @@ class ApplicationPipeline:
         deduplicator: RoleDeduplicator,
         base_resume_path: Path,
         shadow_mode: bool,
+        recruiting_year: int,
         window_size: int = 100,
         max_attempts: int = 3,
         clock: Callable[[], datetime] = _utc_now,
@@ -74,6 +76,7 @@ class ApplicationPipeline:
             raise ValueError("window_size must be positive")
         if max_attempts <= 0:
             raise ValueError("max_fetch_attempts must be positive")
+        self._recruiting_year = recruiting_year
         self._state_store = state_store
         self._fetcher = fetcher
         self._model_client = model_client
@@ -155,6 +158,23 @@ class ApplicationPipeline:
     def process_listing(self, listing: Listing) -> PipelineOutcome:
         """Run one listing to a terminal artifact/decision or explicit retry/shadow state."""
         timestamp = self._clock()
+
+        # Cheapest gate first. This reads fields the snapshot already carries, so
+        # an off-season, graduate-only or off-discipline listing is decided
+        # before it costs a fetch, let alone a model call.
+        eligibility = screen_listing_eligibility(
+            listing,
+            recruiting_year=self._recruiting_year,
+            decided_at=timestamp,
+        )
+        if eligibility is not None:
+            return self._commit_disqualification(
+                listing,
+                eligibility,
+                summary="structured listing fields fall outside the configured search",
+                timestamp=timestamp,
+            )
+
         if screen_locations(listing.locations).status is LocationScreenStatus.DISQUALIFY:
             return self._commit_disqualification(
                 listing,

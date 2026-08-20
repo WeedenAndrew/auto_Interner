@@ -184,6 +184,7 @@ def run_demo(
         deduplicator=RoleDeduplicator(data_dir, DEMO_RECRUITING_YEAR),
         base_resume_path=fictional_base_resume_path(),
         shadow_mode=True,
+        recruiting_year=DEMO_RECRUITING_YEAR,
         window_size=window_size,
         max_attempts=max_fetch_attempts,
         clock=clock,

@@ -106,6 +106,7 @@ def _build_pipeline(
         deduplicator=RoleDeduplicator(settings.data_dir, settings.recruiting_year),
         base_resume_path=base_resume_path,
         shadow_mode=settings.shadow_mode,
+        recruiting_year=settings.recruiting_year,
         window_size=settings.window_size,
         max_attempts=settings.max_fetch_attempts,
         clock=clock,

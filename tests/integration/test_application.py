@@ -113,6 +113,7 @@ def _pipeline(
             deduplicator=RoleDeduplicator(data_dir, 2027),
             base_resume_path=_base_resume(),
             shadow_mode=shadow,
+            recruiting_year=2027,
             window_size=window_size,
             max_attempts=max_attempts,
             clock=lambda: NOW,

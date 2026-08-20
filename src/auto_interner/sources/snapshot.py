@@ -24,6 +24,9 @@ _KNOWN_FIELDS = frozenset(
         "date_posted",
         "date_updated",
         "sponsorship",
+        "terms",
+        "degrees",
+        "category",
     }
 )
 
@@ -89,6 +92,21 @@ def _optional_string(record: dict[str, object], field_name: str) -> str | None:
         return None
     normalized = value.strip()
     return normalized or None
+
+
+def _optional_string_tuple(record: dict[str, object], field_name: str) -> tuple[str, ...]:
+    """Read a list-of-strings field, tolerating absence and malformed entries.
+
+    An unusable value yields an empty tuple rather than an anomaly. These fields
+    only ever narrow the candidate set, so a missing or malformed one must leave
+    the listing eligible; treating it as a parse failure would discard a real
+    posting over an upstream typo.
+    """
+    value = record.get(field_name)
+    if not isinstance(value, list):
+        return ()
+    items = cast(list[object], value)
+    return tuple(item.strip() for item in items if isinstance(item, str) and item.strip())
 
 
 def _is_safe_listing_id(value: str) -> bool:
@@ -158,6 +176,9 @@ def _parse_listing(
             date_posted=_optional_string(record, "date_posted"),
             date_updated=_optional_string(record, "date_updated"),
             sponsorship=_optional_string(record, "sponsorship"),
+            terms=_optional_string_tuple(record, "terms"),
+            degrees=_optional_string_tuple(record, "degrees"),
+            category=_optional_string(record, "category"),
             metadata=metadata,
         ),
         None,

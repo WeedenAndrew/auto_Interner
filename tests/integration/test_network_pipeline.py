@@ -38,6 +38,7 @@ def _pipeline(
         deduplicator=RoleDeduplicator(data_dir, 2027),
         base_resume_path=fictional_base_resume_path(),
         shadow_mode=True,
+        recruiting_year=2027,
         max_attempts=max_attempts,
         clock=lambda: NOW,
     )

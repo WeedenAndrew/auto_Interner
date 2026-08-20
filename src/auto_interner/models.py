@@ -29,6 +29,7 @@ class FetchMethod(StrEnum):
 class ScreeningTier(StrEnum):
     """Screening stage that produced evidence."""
 
+    STRUCTURED_ELIGIBILITY = "tier_0_eligibility"
     STRUCTURED_LOCATION = "tier_0_location"
     DETERMINISTIC_TEXT = "tier_1_text"
     SEMANTIC = "tier_2_semantic"
@@ -40,6 +41,9 @@ class ScreeningCategory(StrEnum):
     LOCATION = "location"
     DRUG_TESTING = "drug_testing"
     SECURITY_CLEARANCE = "security_clearance"
+    RECRUITING_TERM = "recruiting_term"
+    DEGREE_LEVEL = "degree_level"
+    ROLE_CATEGORY = "role_category"
 
 
 class EvidenceDecision(StrEnum):
@@ -90,6 +94,13 @@ class Listing:
     date_posted: str | None = None
     date_updated: str | None = None
     sponsorship: str | None = None
+    # Upstream ships these three and the pipeline used to drop them into
+    # `metadata` unread, which meant every off-season, graduate-only and
+    # off-discipline posting was paid for at Tier 2 before anything looked at
+    # them. They are structured, free, and decided before a single fetch.
+    terms: tuple[str, ...] = ()
+    degrees: tuple[str, ...] = ()
+    category: str | None = None
     metadata: dict[str, object] = field(default_factory=dict, repr=False, compare=False)
 
 
