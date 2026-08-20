@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from importlib import resources
 from pathlib import Path
 from typing import cast
@@ -18,6 +19,7 @@ from auto_interner.models import FetchResult, Listing, PipelineStatus
 from auto_interner.paths import OutputPathPlanner
 from auto_interner.rewriting.service import REWRITE_TOOL_NAME, RewriteResponseError
 from auto_interner.screening.semantic import SEMANTIC_TOOL_NAME
+from auto_interner.screening.semantic_cache import MAX_AGE, CachedVerdict
 from auto_interner.state_store import StateStore
 
 pytestmark = pytest.mark.integration
@@ -525,3 +527,74 @@ def test_permanent_rewrite_failure_enters_manual_review(tmp_path: Path) -> None:
     assert state.manual_review_count() == 1
     assert not (tmp_path / "data").exists()
     assert "private provider detail" not in state.manual_review_path.read_text(encoding="utf-8")
+
+
+def test_two_listings_sharing_a_posting_pay_for_one_semantic_screen(tmp_path: Path) -> None:
+    """Tier 2 is keyed on the posting body, so a duplicate posting is free.
+
+    Upstream publishes the same posting under separate IDs, and a shadow run
+    re-reaches Tier 2 every cycle because nothing became terminal. Over a
+    six-month unattended run that repetition is the dominant model cost.
+    """
+    fetcher = FixtureFetcher(
+        {
+            "fictional-1": {"status": "success", "text": POSTING},
+            "fictional-2": {"status": "success", "text": POSTING},
+        }
+    )
+    pipeline, _, _, model = _pipeline(tmp_path, shadow=True, fetcher=fetcher)
+
+    pipeline.process_listing(_listing("fictional-1"))
+    pipeline.process_listing(_listing("fictional-2"))
+
+    assert fetcher.calls == ["fictional-1", "fictional-2"]
+    assert model.calls.count(SEMANTIC_TOOL_NAME) == 1
+
+
+def test_a_different_posting_is_screened_on_its_own(tmp_path: Path) -> None:
+    """The key is the posting body, never the listing."""
+    fetcher = FixtureFetcher(
+        {
+            "fictional-1": {"status": "success", "text": POSTING},
+            "fictional-2": {"status": "success", "text": POSTING + " Distinct fictional tail."},
+        }
+    )
+    pipeline, _, _, model = _pipeline(tmp_path, shadow=True, fetcher=fetcher)
+
+    pipeline.process_listing(_listing("fictional-1"))
+    pipeline.process_listing(_listing("fictional-2"))
+
+    assert model.calls.count(SEMANTIC_TOOL_NAME) == 2
+
+
+def test_an_expired_verdict_is_screened_again(tmp_path: Path) -> None:
+    pipeline, state, _, model = _pipeline(tmp_path, shadow=True)
+    state.record_semantic_verdict(
+        sha256(POSTING.encode("utf-8")).hexdigest(),
+        CachedVerdict(
+            disqualified=False, screened_at=NOW - MAX_AGE - timedelta(days=1), summary=""
+        ),
+    )
+
+    pipeline.process_listing(_listing())
+
+    assert model.calls.count(SEMANTIC_TOOL_NAME) == 1
+
+
+def test_a_drifted_verdict_passes_forward_and_is_recorded(tmp_path: Path) -> None:
+    """A stale disqualification the model no longer agrees with must not stand."""
+    pipeline, state, _, _ = _pipeline(tmp_path, shadow=True)
+    state.record_semantic_verdict(
+        sha256(POSTING.encode("utf-8")).hexdigest(),
+        CachedVerdict(
+            disqualified=True,
+            screened_at=NOW - MAX_AGE - timedelta(days=1),
+            summary="stale fictional disqualifier",
+            category="drug_testing",
+        ),
+    )
+
+    outcome = pipeline.process_listing(_listing())
+
+    assert outcome.status is not PipelineStatus.DISQUALIFIED
+    assert "drift" in state.drift_path.read_text(encoding="utf-8")

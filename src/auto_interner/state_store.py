@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Protocol, cast
 
 from auto_interner.models import Listing, PipelineOutcome, PipelineStatus, ScreeningDecision
+from auto_interner.screening.semantic_cache import CachedVerdict
 
 
 class StateCorruptionError(ValueError):
@@ -120,6 +121,8 @@ class StateStore:
         self.manual_review_path = state_dir / "manual_review_queue.jsonl"
         self.run_summary_path = state_dir / "run_summaries.jsonl"
         self.heartbeat_path = state_dir / "heartbeat.json"
+        self.semantic_cache_path = state_dir / "semantic_cache.json"
+        self.drift_path = state_dir / "semantic_drift.jsonl"
         self.tmp_dir = state_dir / "tmp"
         self._fault_injector = fault_injector or _NoFaults()
 
@@ -165,6 +168,81 @@ class StateStore:
                 raise StateCorruptionError("retry state contains an invalid ID or count") from exc
             counts[listing_id] = count
         return counts
+
+    def load_semantic_cache(self) -> dict[str, CachedVerdict]:
+        """Load remembered Tier 2 verdicts, discarding any entry that is unusable.
+
+        Unlike seen IDs or retry counts, a damaged entry here is not corruption
+        to raise on. The worst case of dropping one is paying for a screen that
+        had already been paid for, so it is recovered by re-screening rather
+        than by stopping the run.
+        """
+        if not self.semantic_cache_path.exists():
+            return {}
+        try:
+            payload = cast(object, json.loads(self.semantic_cache_path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        if not isinstance(payload, dict):
+            return {}
+        verdicts: dict[str, CachedVerdict] = {}
+        for content_hash, entry in cast(dict[object, object], payload).items():
+            if not isinstance(content_hash, str) or not isinstance(entry, dict):
+                continue
+            record = cast(dict[str, object], entry)
+            disqualified = record.get("disqualified")
+            screened_at = record.get("screened_at")
+            summary = record.get("summary", "")
+            category = record.get("category", "")
+            if not isinstance(disqualified, bool) or not isinstance(screened_at, str):
+                continue
+            try:
+                decided = datetime.fromisoformat(screened_at)
+            except ValueError:
+                continue
+            if decided.tzinfo is None:
+                continue
+            verdicts[content_hash] = CachedVerdict(
+                disqualified=disqualified,
+                screened_at=decided,
+                summary=summary if isinstance(summary, str) else "",
+                category=category if isinstance(category, str) else "",
+            )
+        return verdicts
+
+    def record_semantic_verdict(
+        self, content_hash: str, verdict: CachedVerdict, *, max_entries: int = 5_000
+    ) -> None:
+        """Store one verdict, evicting the oldest entries past `max_entries`.
+
+        A six-month unattended run would otherwise grow this file without bound.
+        Eviction is by age because the oldest entry is also the one nearest to
+        expiring on its own.
+        """
+        cache = self.load_semantic_cache()
+        cache[content_hash] = verdict
+        if len(cache) > max_entries:
+            keep = sorted(cache.items(), key=lambda item: item[1].screened_at, reverse=True)
+            cache = dict(keep[:max_entries])
+        self._atomic_write_json(
+            self.semantic_cache_path,
+            {
+                key: {
+                    "disqualified": value.disqualified,
+                    "screened_at": value.screened_at.isoformat(),
+                    "summary": value.summary,
+                    "category": value.category,
+                }
+                for key, value in cache.items()
+            },
+        )
+
+    def record_semantic_drift(self, listing_id: str, note: str) -> None:
+        """Append one Tier 2 disagreement, which is the drift signal itself."""
+        _validate_listing_id(listing_id)
+        self._append_jsonl(
+            self.drift_path, {"listing_id": listing_id, "note": _sanitize_reason(note)}
+        )
 
     def _ensure_write_layout(self) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)

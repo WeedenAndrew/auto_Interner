@@ -13,6 +13,7 @@ from auto_interner.model_client import ModelBoundaryError, StructuredModelClient
 from auto_interner.models import (
     Confidence,
     EvidenceDecision,
+    FetchResult,
     FetchStatus,
     Listing,
     PipelineOutcome,
@@ -40,6 +41,11 @@ from auto_interner.screening.eligibility import screen_listing_eligibility
 from auto_interner.screening.keywords import screen_posting_text
 from auto_interner.screening.location import LocationScreenStatus, screen_locations
 from auto_interner.screening.semantic import SemanticResponseError, screen_posting_semantically
+from auto_interner.screening.semantic_cache import (
+    CachedVerdict,
+    plan_lookup,
+    resolve_disagreement,
+)
 from auto_interner.state_store import StateStore
 
 
@@ -155,6 +161,71 @@ class ApplicationPipeline:
             decided_at=timestamp,
         )
 
+    def _semantic_decision(
+        self,
+        listing: Listing,
+        fetch_result: FetchResult,
+        *,
+        timestamp: datetime,
+    ) -> ScreeningDecision | None:
+        """Return the Tier 2 verdict, reusing an unexpired cached one when present.
+
+        Raises whatever the model boundary raises, so the caller keeps its single
+        retry and manual-review policy for this stage.
+        """
+        content_key = fetch_result.content_hash
+        cache = self._state_store.load_semantic_cache()
+        cached = cache.get(content_key) if content_key is not None else None
+        lookup = plan_lookup(cached, now=timestamp)
+
+        if not lookup.screen_again and lookup.reuse is not None:
+            if not lookup.reuse.disqualified:
+                return None
+            return ScreeningDecision(
+                listing_id=listing.id,
+                outcome=ScreeningOutcome.DISQUALIFY,
+                evidence=(
+                    ScreeningEvidence(
+                        category=ScreeningCategory(lookup.reuse.category),
+                        decision=EvidenceDecision.DISQUALIFY,
+                        confidence=Confidence.HIGH,
+                        tier=ScreeningTier.SEMANTIC,
+                        evidence=lookup.reuse.summary,
+                    ),
+                ),
+                decided_at=timestamp,
+            )
+
+        fresh = screen_posting_semantically(
+            self._model_client,
+            listing.id,
+            fetch_result.text,
+            decided_at=timestamp,
+        )
+        acted, drift = resolve_disagreement(
+            lookup.reuse if lookup.screen_again else None,
+            fresh_disqualified=fresh is not None,
+        )
+        if content_key is not None:
+            self._state_store.record_semantic_verdict(
+                content_key,
+                CachedVerdict(
+                    disqualified=fresh is not None,
+                    screened_at=timestamp,
+                    summary=(
+                        fresh.evidence[0].evidence if fresh is not None and fresh.evidence else ""
+                    ),
+                    category=(
+                        fresh.evidence[0].category.value
+                        if fresh is not None and fresh.evidence
+                        else ""
+                    ),
+                ),
+            )
+        if drift is not None:
+            self._state_store.record_semantic_drift(listing.id, drift)
+        return fresh if acted else None
+
     def process_listing(self, listing: Listing) -> PipelineOutcome:
         """Run one listing to a terminal artifact/decision or explicit retry/shadow state."""
         timestamp = self._clock()
@@ -234,12 +305,7 @@ class ApplicationPipeline:
             )
 
         try:
-            decision = screen_posting_semantically(
-                self._model_client,
-                listing.id,
-                fetch_result.text,
-                decided_at=timestamp,
-            )
+            decision = self._semantic_decision(listing, fetch_result, timestamp=timestamp)
         except (ModelBoundaryError, SemanticResponseError) as exc:
             detail = f"boundary raised {type(exc).__name__}"
             if getattr(exc, "retryable", True):

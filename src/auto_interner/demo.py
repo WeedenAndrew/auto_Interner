@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
+from hashlib import sha256
 from importlib import resources
 from pathlib import Path
 from typing import cast
@@ -55,12 +56,17 @@ class FixtureFetcher:
         except (KeyError, ValueError) as exc:
             raise DemoDataError(f"invalid fetch status for fixture {listing.id}") from exc
         if status is FetchStatus.SUCCESS:
+            text = entry.get("text", "")
             return FetchResult(
                 listing_id=listing.id,
                 status=status,
                 attempt_number=attempt_number,
                 method=FetchMethod.FIXTURE,
-                text=entry.get("text", ""),
+                text=text,
+                # The real adapters hash the body they return, and the Tier 2
+                # cache is keyed on it. Omitting it here left the fixture path
+                # silently unable to reach the cache at all.
+                content_hash=sha256(text.encode("utf-8")).hexdigest(),
             )
         return FetchResult(
             listing_id=listing.id,
