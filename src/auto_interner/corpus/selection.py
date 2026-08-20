@@ -354,7 +354,10 @@ def _fill(
     while used < budget:
         best_kind: str | None = None
         best_score: tuple[int, int] | None = None
-        best_payload = None
+        # A tagged union: best_kind says which arm best_payload holds. mypy
+        # cannot follow a string tag, so the arms are narrowed explicitly where
+        # they are read rather than the annotation being widened away.
+        best_payload: tuple[int, Bullet] | SelectedBlock | None = None
 
         # Option A: deepen a block already on the page.
         for index, sel in enumerate(selected):
@@ -424,6 +427,7 @@ def _fill(
             break
 
         if best_kind == "bullet":
+            assert isinstance(best_payload, tuple)  # guaranteed by best_kind
             index, bullet = best_payload
             sel = selected[index]
             hits = frozenset(bullet.tags & set(requirements) - covered)
@@ -437,11 +441,12 @@ def _fill(
             covered |= hits
             used += bullet.cost
         else:
-            plan = best_payload
-            selected.append(plan)
-            covered |= plan.covers
-            used += plan.cost
-            pool.remove(plan.block)
+            assert isinstance(best_payload, SelectedBlock)  # guaranteed by best_kind
+            chosen = best_payload
+            selected.append(chosen)
+            covered |= chosen.covers
+            used += chosen.cost
+            pool.remove(chosen.block)
 
     return _fill_by_recency(
         selected,

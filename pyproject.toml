@@ -83,6 +83,14 @@ strict = true
 mypy_path = "src"
 packages = ["auto_interner"]
 
+# PyYAML is an optional corpus format, imported inside a try/except that raises
+# a CorpusError telling the operator to install it or convert to JSON. Declaring
+# types-PyYAML would add a dev dependency for a module that is deliberately not
+# a dependency, so the stubs are waived instead.
+[[tool.mypy.overrides]]
+module = ["yaml"]
+ignore_missing_imports = true
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100

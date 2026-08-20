@@ -25,8 +25,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from docx import Document
+from docx.document import Document as DocxDocument
+from docx.oxml.xmlchemy import BaseOxmlElement
 from docx.text.paragraph import Paragraph
 
+from auto_interner.corpus.formatting import (
+    BASE_PAGE_WIDTH_EMU,
+    BASE_SIDE_MARGIN_EMU,
+    emu,
+)
 from auto_interner.corpus.selection import Selection
 from auto_interner.documents.template_reader import ResumeDocument, heading_name
 
@@ -106,7 +113,7 @@ def inline_trailing_link(paragraph: Paragraph, right_margin_twips: int) -> bool:
     # A tab already being present does not mean the line is correct -- the base
     # resume had a tab *and* 84 spaces *and* no right stop, so the tab fell on a
     # default stop and the spaces pushed the link onto the next line anyway.
-    spacing: list = []
+    spacing: list[BaseOxmlElement] = []
     for node in reversed(children[:index]):
         if node.tag != f"{_W}r":
             break
@@ -145,10 +152,14 @@ def inline_trailing_link(paragraph: Paragraph, right_margin_twips: int) -> bool:
     return True
 
 
-def inline_trailing_links(document: Document) -> int:
+def inline_trailing_links(document: DocxDocument) -> int:
     """Apply the title-line link rule to every paragraph that qualifies."""
     section = document.sections[0]
-    width = section.page_width - section.left_margin - section.right_margin
+    width = (
+        emu(section.page_width, BASE_PAGE_WIDTH_EMU)
+        - emu(section.left_margin, BASE_SIDE_MARGIN_EMU)
+        - emu(section.right_margin, BASE_SIDE_MARGIN_EMU)
+    )
     right_margin_twips = round(width / 914400 * 1440)
     return sum(
         inline_trailing_link(paragraph, right_margin_twips) for paragraph in document.paragraphs
@@ -249,7 +260,8 @@ def assemble_from_template(
             )
             is not None
         )
-        if numbered or "List" in (paragraph.style.name or ""):
+        style_name = paragraph.style.name if paragraph.style is not None else None
+        if numbered or "List" in (style_name or ""):
             _drop(paragraph)
             removed += 1
 

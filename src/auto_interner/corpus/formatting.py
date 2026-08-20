@@ -24,10 +24,29 @@ from dataclasses import dataclass, replace
 from math import ceil, floor
 
 from docx.document import Document as DocxDocument
-from docx.shared import Inches, Pt
+from docx.shared import Inches, Length, Pt
 
 _EMU_PER_INCH = 914400
 _POINTS_PER_INCH = 72
+
+# python-docx returns None for any geometry a section omits from <w:pgMar>, and
+# the arithmetic below cannot proceed on None. These are the base resume's own
+# measurements, not Word's defaults -- Word assumes 1in margins and Letter, but
+# these documents use 0.75in sides and 0.65in top/bottom, so assuming Word's
+# numbers would silently change the line estimate rather than preserve it.
+#
+# Read straight off demo_data/fictional_base_resume.docx. Re-measure if the base
+# geometry changes; a stale value here is a quiet capacity error, not a crash.
+BASE_SIDE_MARGIN_EMU = 685800  # 0.75 in
+BASE_VERTICAL_MARGIN_EMU = 594360  # 0.65 in
+BASE_PAGE_WIDTH_EMU = 7772400  # 8.5 in, US Letter
+BASE_PAGE_HEIGHT_EMU = 10058400  # 11 in, US Letter
+
+
+def emu(value: Length | None, default: int) -> int:
+    """Return a section measurement, falling back to the base resume's geometry."""
+    return default if value is None else int(value)
+
 
 # A serif face at a given size averages close to half its point size in width.
 # 7in usable at 11pt gives ~92 characters, which is the 95 that `Bullet.cost`
@@ -98,8 +117,12 @@ def current_typography(document: DocxDocument) -> Typography:
     after = style.paragraph_format.space_after
     return Typography(
         font_pt=size.pt if size is not None else 11.0,
-        margin_in=min(section.left_margin, section.right_margin) / _EMU_PER_INCH,
-        line_spacing=float(spacing) if isinstance(spacing, (int, float)) else 1.0,
+        margin_in=min(
+            emu(section.left_margin, BASE_SIDE_MARGIN_EMU),
+            emu(section.right_margin, BASE_SIDE_MARGIN_EMU),
+        )
+        / _EMU_PER_INCH,
+        line_spacing=float(spacing) if isinstance(spacing, int | float) else 1.0,
         space_after_pt=after.pt if after is not None else 0.0,
     )
 
@@ -124,7 +147,11 @@ def capacity(document: DocxDocument, typography: Typography, *, safety: float = 
     """How many rendered lines one page holds at these settings."""
     section = document.sections[0]
     usable_pt = (
-        (section.page_height - section.top_margin - section.bottom_margin)
+        (
+            emu(section.page_height, BASE_PAGE_HEIGHT_EMU)
+            - emu(section.top_margin, BASE_VERTICAL_MARGIN_EMU)
+            - emu(section.bottom_margin, BASE_VERTICAL_MARGIN_EMU)
+        )
         / _EMU_PER_INCH
         * _POINTS_PER_INCH
     )
@@ -136,7 +163,11 @@ def capacity(document: DocxDocument, typography: Typography, *, safety: float = 
 def estimate_lines(document: DocxDocument, typography: Typography) -> int:
     """Rendered line count, wrapping long paragraphs the way the page will."""
     section = document.sections[0]
-    usable_in = (section.page_width - section.left_margin - section.right_margin) / _EMU_PER_INCH
+    usable_in = (
+        emu(section.page_width, BASE_PAGE_WIDTH_EMU)
+        - emu(section.left_margin, BASE_SIDE_MARGIN_EMU)
+        - emu(section.right_margin, BASE_SIDE_MARGIN_EMU)
+    ) / _EMU_PER_INCH
     chars = max(
         20,
         int(usable_in * _POINTS_PER_INCH / (typography.font_pt * _AVERAGE_CHAR_WIDTH_EM)),
