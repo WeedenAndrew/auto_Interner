@@ -31,10 +31,11 @@ from auto_interner.paths import (
     OutputPathError,
     OutputPathPlanner,
 )
+from auto_interner.rewriting.grading import GradeResponseError
+from auto_interner.rewriting.loop import MAX_ATTEMPTS, request_graded_rewrite
 from auto_interner.rewriting.service import (
     RewriteResponseError,
     UnsupportedRewriteError,
-    request_validated_rewrite,
 )
 from auto_interner.scanner import iter_unseen_windows
 from auto_interner.screening.eligibility import screen_listing_eligibility
@@ -76,12 +77,16 @@ class ApplicationPipeline:
         recruiting_year: int,
         window_size: int = 100,
         max_attempts: int = 3,
+        max_rewrite_attempts: int = MAX_ATTEMPTS,
         clock: Callable[[], datetime] = _utc_now,
     ) -> None:
         if window_size <= 0:
             raise ValueError("window_size must be positive")
         if max_attempts <= 0:
             raise ValueError("max_fetch_attempts must be positive")
+        if max_rewrite_attempts <= 0:
+            raise ValueError("max_rewrite_attempts must be positive")
+        self._max_rewrite_attempts = max_rewrite_attempts
         self._recruiting_year = recruiting_year
         self._state_store = state_store
         self._fetcher = fetcher
@@ -356,11 +361,13 @@ class ApplicationPipeline:
 
         try:
             resume = read_resume(self._base_resume_path)
-            rewrite = request_validated_rewrite(
+            graded = request_graded_rewrite(
                 self._model_client,
                 resume,
                 fetch_result.text,
+                max_attempts=self._max_rewrite_attempts,
             )
+            rewrite = graded.plan
             output_plan = self._output_planner.plan(listing, generated_at=timestamp)
         except (ResumeStructureError, UnsupportedRewriteError, OutputPathError, TypeError) as exc:
             return self._manual(
@@ -370,7 +377,7 @@ class ApplicationPipeline:
                 timestamp=timestamp,
                 detail=f"rejected by {type(exc).__name__}",
             )
-        except (ModelBoundaryError, RewriteResponseError) as exc:
+        except (ModelBoundaryError, RewriteResponseError, GradeResponseError) as exc:
             detail = f"boundary raised {type(exc).__name__}"
             if getattr(exc, "retryable", True):
                 return self._retry(

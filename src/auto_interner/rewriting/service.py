@@ -207,19 +207,26 @@ def request_validated_rewrite(
     client: StructuredModelClient,
     document: ResumeDocument,
     posting_text: str,
+    *,
+    feedback: str | None = None,
 ) -> ValidatedRewritePlan:
-    """Request a structured rewrite without contact data and validate it locally."""
+    """Request a structured rewrite without contact data and validate it locally.
+
+    `feedback` carries why a previous attempt was rejected, and is deliberately a
+    category rather than a diff. See `rewriting.loop` for why: the validator is a
+    proxy for truthfulness, and a model told exactly which token tripped it
+    learns to dodge the check rather than to be accurate.
+    """
+    request: dict[str, object] = {
+        "base_resume": document.model_payload(),
+        "job_posting": posting_text,
+    }
+    if feedback is not None:
+        request["previous_attempt_rejected_because"] = feedback
     raw = client.call_tool(
         tool_name=REWRITE_TOOL_NAME,
         input_schema=REWRITE_INPUT_SCHEMA,
         system_prompt=_SYSTEM_PROMPT,
-        user_prompt=json.dumps(
-            {
-                "base_resume": document.model_payload(),
-                "job_posting": posting_text,
-            },
-            ensure_ascii=False,
-            separators=(",", ":"),
-        ),
+        user_prompt=json.dumps(request, ensure_ascii=False, separators=(",", ":")),
     )
     return validate_rewrite(document, raw)

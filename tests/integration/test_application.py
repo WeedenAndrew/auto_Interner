@@ -17,6 +17,7 @@ from auto_interner.demo import FixtureFetcher
 from auto_interner.model_client import ModelBoundaryError
 from auto_interner.models import FetchResult, Listing, PipelineStatus
 from auto_interner.paths import OutputPathPlanner
+from auto_interner.rewriting.grading import GRADE_TOOL_NAME
 from auto_interner.rewriting.service import REWRITE_TOOL_NAME, RewriteResponseError
 from auto_interner.screening.semantic import SEMANTIC_TOOL_NAME
 from auto_interner.screening.semantic_cache import MAX_AGE, CachedVerdict
@@ -33,9 +34,16 @@ POSTING = (
 
 
 class FakeModel:
-    def __init__(self, *, semantic: object | None = None, rewrite: object | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        semantic: object | None = None,
+        rewrite: object | None = None,
+        grade: object | None = None,
+    ) -> None:
         self.semantic = semantic
         self.rewrite = rewrite
+        self.grade = grade
         self.calls: list[str] = []
 
     def call_tool(
@@ -65,6 +73,12 @@ class FakeModel:
                     "confidence": "high",
                     "evidence": "Denver, Colorado",
                 },
+            }
+        if tool_name == GRADE_TOOL_NAME:
+            return self.grade or {
+                "aligned": True,
+                "confidence": "high",
+                "concern": "the fictional rewrite preserves the base",
             }
         if self.rewrite is not None:
             return self.rewrite
@@ -139,7 +153,9 @@ def test_f_orc_001_generates_company_role_date_document(tmp_path: Path) -> None:
     assert outcome.output_path == expected
     assert expected.is_file()
     assert state.load_seen_ids() == {"fictional-1"}
-    assert model.calls == [SEMANTIC_TOOL_NAME, REWRITE_TOOL_NAME]
+    # Screen, rewrite, then grade. A clean pass is three calls, and the grade is
+    # not optional: nothing is published on the rewriter's own say-so.
+    assert model.calls == [SEMANTIC_TOOL_NAME, REWRITE_TOOL_NAME, GRADE_TOOL_NAME]
 
 
 def test_f_orc_002_shadow_validates_without_writing_or_consuming(tmp_path: Path) -> None:

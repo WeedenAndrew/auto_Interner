@@ -20,6 +20,7 @@ from auto_interner.models import (
     PipelineRunResult,
 )
 from auto_interner.paths import OutputPathPlanner
+from auto_interner.rewriting.grading import GRADE_TOOL_NAME
 from auto_interner.rewriting.service import REWRITE_TOOL_NAME
 from auto_interner.screening.semantic import SEMANTIC_TOOL_NAME
 from auto_interner.sources import SnapshotResult, parse_snapshot_json
@@ -105,6 +106,16 @@ class FictionalStructuredModel:
                     "confidence": "high",
                     "evidence": "the fictional posting states a United States location",
                 },
+            }
+        if tool_name == GRADE_TOOL_NAME:
+            # The fixture rewrite only reorders sections and replaces nothing, so
+            # it cannot drift from the base. A fake that graded it as misaligned
+            # would make the demonstration fail for a reason the demonstration is
+            # not about.
+            return {
+                "aligned": True,
+                "confidence": "high",
+                "concern": "the fictional rewrite reorders sections and changes no wording",
             }
         if tool_name != REWRITE_TOOL_NAME:
             raise ValueError("fixture model received an unknown tool")
