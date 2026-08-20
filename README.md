@@ -9,12 +9,12 @@ what is left, and hands you a document to submit yourself.
 Deliberately single-user. One résumé, one person, one industry. Every design
 choice below follows from that: local state, no accounts, no server, no
 multi-tenancy, and a machine that can sit on a shelf and run for a year.
+Generalising it for anyone else is a separate project.
 
-Generalising it for other people is a different project, and it is
-[Curat0r](https://github.com/WeedenAndrew/Curat0r).
-
-> **Status: complete and running.** 335 tests, full offline test gate,
-> multi-architecture Docker deployment.
+> **Status: complete and running.** 534 tests at 91.05% branch coverage;
+> formatting, linting and `mypy --strict` clean across all 81 files;
+> multi-architecture Docker deployment verified on arm64, container and browser
+> smoke both passing. Measured 2026-08-20; regenerate with `GATE.cmd`.
 >
 > **Automatic submission is deliberately out of scope.** It violates the terms
 > of service of most application portals, and auto-submitted applications get
@@ -26,11 +26,30 @@ Generalising it for other people is a different project, and it is
 **What it does**
 
 ```
-snapshot → scan → fetch → deterministic screen → semantic screen
-        → role dedupe → validated rewrite → DOCX assembly → atomic commit
+snapshot → scan → Tier 0 structured screen (eligibility, then location)
+        → fetch → Tier 1 deterministic text screen
+        → Tier 2 semantic screen (cached) → role dedupe
+        → graded rewrite (retry once) → DOCX assembly → atomic commit
 ```
 
-Two properties are unusual enough to call out:
+**Screening is tiered by what it costs.** Tier 0 decides everything decidable
+from the snapshot alone, for free and before any fetch. It holds two rules: an
+eligibility screen over recruiting term, accepted degrees, role category and
+employer type, and the structured location screen. Tier 1 needs the posting body, so it costs a
+fetch. Tier 2 costs a model call on top, and its verdicts are cached against the
+posting body and re-screened weekly.
+
+Every tier passes on unknown. A missing or unrecognised value leaves the listing
+eligible for the next tier to judge, because a wasted model call costs cents and
+a false disqualification costs an internship.
+
+Measured against the live Summer 2027 snapshot, Tier 0 took 1,670 active
+listings to 339. The season rule accounted for 1,100 of that: the repository is
+named for one recruiting cycle but carries every cycle, and nothing had been
+reading the `terms` field. The employer rule landed after that measurement, so
+the live figure is lower and has not been re-measured.
+
+Two further properties are unusual enough to call out:
 
 **It cannot lie about you.** The rewrite validator rejects any model output that
 alters a numeric claim, introduces a technology absent from your source resume,
@@ -41,24 +60,16 @@ requested in a prompt.
 block before any request is built, and the validator refuses any rewrite that
 reintroduces it.
 
-### `auto_interner.corpus` is scheduled to leave this repository
+### `auto_interner.corpus` is not on the live path
 
-A second tailoring strategy grew here. Instead of letting a model write and then
-validating it, keep a corpus of blocks you wrote and *select* a subset, so
-nothing is ever authored on your behalf. Stronger guarantee, and it works.
+The directory holds a second tailoring strategy: keep a corpus of blocks you
+wrote and *select* a subset, so nothing is ever authored on your behalf. It
+works, and it is 2,113 lines and 81 tests. It is also source-agnostic and built
+for arbitrary users, which is not what this project is.
 
-It is also not this project's job. It is corpus-driven, source-agnostic and
-built for arbitrary users, which is the definition of the other repository. It
-currently sits at 1,889 lines and 75 tests, imported by nothing on the live
-path, reachable only from scripts.
-
-It moves to [Curat0r](https://github.com/WeedenAndrew/Curat0r) as that project's
-selection core. Recorded here rather than quietly deleted, because a reader
-running `find` will notice the directory and deserves to know why it is there.
-
-The worked example, the structural rules and the coverage reporting that went
-with it now live in [Curat0r's README](https://github.com/WeedenAndrew/Curat0r),
-alongside the code.
+Nothing imports it. It is reachable only from scripts, and it leaves for
+[Curat0r](https://github.com/WeedenAndrew/Curat0r) rather than staying. Noted
+here so a reader running `find` knows why the directory is present.
 
 ## Design goals
 
@@ -103,8 +114,10 @@ V1 is a modular monolith. Components remain independently testable, while one
 orchestrator owns all state and generated-document writes.
 
 ```text
-snapshot -> scan -> fetch -> deterministic screen -> semantic screen
-         -> role dedupe -> validated rewrite -> DOCX assembly -> atomic commit
+snapshot -> scan -> Tier 0 structured screen (eligibility, then location)
+        -> fetch -> Tier 1 deterministic text screen
+        -> Tier 2 semantic screen (cached) -> role dedupe
+        -> graded rewrite (retry once) -> DOCX assembly -> atomic commit
 ```
 
 Temporary failures stay retryable. A listing becomes seen only after a terminal outcome
@@ -124,8 +137,10 @@ is a duplicate; a document dated exactly on the cutoff proceeds.
 
 ## Local setup
 
-Requirements: Python 3.12 or newer. Static retrieval has no third-party runtime
-dependencies. Selenium is an optional dependency for browser-rendered postings.
+Requirements: Python 3.12 or newer. Two runtime dependencies, `python-docx` and
+`lxml`, both pinned exactly; lxml is python-docx's own requirement and is pinned
+here so the resolve is deterministic. Selenium is optional, for browser-rendered
+postings only.
 
 ```powershell
 py -3.12 -m venv .venv
@@ -256,6 +271,7 @@ Windows and Linux. The default suite makes no live network, browser, or model ca
 - [Phase 5 traceability](docs/traceability/phase-5.md)
 - [Phase 6 traceability](docs/traceability/phase-6.md)
 - [Phase 7 traceability](docs/traceability/phase-7.md)
+- [Phase 9 traceability](docs/traceability/phase-9.md)
 - [Raspberry Pi deployment](docs/raspberry-pi.md)
 
 ## License

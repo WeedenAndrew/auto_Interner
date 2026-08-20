@@ -1,15 +1,20 @@
 """Tier 0 structured eligibility, decided before anything is fetched or paid for.
 
 Every other screening tier costs something. Tier 1 needs the posting body, so it
-costs a fetch; Tier 2 costs a model call on top. This module reads three fields
-the snapshot already carries -- recruiting term, accepted degrees, and role
-category -- and answers "is this even the kind of job being looked for?" for
-free, before either.
+costs a fetch; Tier 2 costs a model call on top. This module reads four fields
+the snapshot already carries -- recruiting term, accepted degrees, role category
+and employer type -- and answers "is this even the kind of job being looked
+for?" for free, before either.
 
-Measured against the live Summer 2027 snapshot on 2026-08-19, the three rules
-together took 1,670 active listings to 339. The season rule alone accounted for
-1,100 of that: the repository is named for one cycle but carries every cycle,
-and nothing had been reading `terms`.
+Measured against the live Summer 2027 snapshot on 2026-08-19, the first three
+rules together took 1,670 active listings to 339. The season rule alone
+accounted for 1,100 of that: the repository is named for one cycle but carries
+every cycle, and nothing had been reading `terms`. The employer rule was added
+after that measurement, so the current figure is lower and unmeasured.
+
+Every rule that fires is recorded rather than only the first, so a decision log
+entry explains the whole reason instead of whichever check happened to run
+earliest.
 
 **Unknown always passes.** A missing, empty or unrecognised value leaves the
 listing eligible and lets the later tiers decide on the real posting text. That

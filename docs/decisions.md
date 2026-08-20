@@ -608,3 +608,58 @@ dependency direction visible in the file tree.
 re-exported from `auto_interner.sources`, so callers import one stable surface while the
 transport split stays internal. Adding a third transport means adding a module beside
 `git` and `http` rather than editing the parser.
+
+## ADR-021: order screening by what each stage costs
+
+**Decision:** Screen in cost order. Tier 0 answers from the snapshot alone and is
+free; it holds an eligibility rule set over recruiting term, degrees, role category
+and employer type, and the structured location screen. Tier 1 needs the posting
+body and costs a fetch. Tier 2 costs a fetch plus a model call, and its verdicts
+are cached against the SHA-256 of the posting text and re-screened after seven days.
+Unknown values never disqualify at any tier.
+
+**Why:** The pipeline was correct and wasteful. It fetched and screened listings
+that could have been rejected from three fields already in hand. Reading `terms`
+found a defect rather than an optimisation: the upstream repository is named for
+one recruiting cycle but carries every cycle, so past-season listings were being
+fetched, screened, and in principle applied to. Against the live Summer 2027
+snapshot the first three eligibility rules took 1,670 active listings to 339, with
+the season rule alone accounting for 1,100.
+
+Caching on posting content rather than listing ID follows from what Tier 2 reads.
+It only ever sees the posting, so a verdict is a statement about a posting. That
+also covers the three ways the same text returns: shadow runs leave outcomes
+nonterminal so an unchanged snapshot is re-screened next cycle, a retry restarts a
+listing from the top, and upstream publishes the same posting under separate IDs.
+
+**Consequence:** Adding a screening rule means deciding which tier it belongs to,
+and the answer is determined by what it needs to read rather than by preference.
+A rule that needs the posting body cannot live in Tier 0 however cheap it looks.
+Tier 0's bias toward passing is load-bearing: it runs before any evidence beyond
+the snapshot exists, so a false disqualification there is unrecoverable and silent.
+
+## ADR-022: grade a rewrite above the validator, never instead of it
+
+**Decision:** After `validate_rewrite` accepts a rewrite, a model grader gives a
+second opinion on whether it still reads as this person's resume. The grader can
+only reject what the validator already accepted. Rejection by either gate spends
+from one shared budget of `MAX_ATTEMPTS = 2`, and the retry receives category-only
+feedback with no rewritten text.
+
+**Why:** The validator answers a narrow question exactly: did the rewrite change a
+number, invent a technology, escalate a proficiency, add contact data, or touch a
+section it may not. It cannot answer whether the result drifted generic, and that
+failure is invisible to every mechanical rule.
+
+Putting the grader above the validator rather than beside it keeps the guarantee
+intact. The validator is free, deterministic, and cannot be argued out of a
+verdict; a model that could overturn it would make truthfulness advisory.
+
+One shared budget rather than one per gate bounds the worst case at two rewrites
+and two grades. Separate budgets would let a rewrite failing each gate alternately
+run twice as long for no better outcome.
+
+**Consequence:** A listing costs at most a fixed, knowable number of model calls.
+Feedback carrying only categories keeps the retry from being handed prose to copy,
+which would let the second attempt launder a claim the first was rejected for.
+The grader fails closed on a malformed response, the same discipline as Tier 2.

@@ -16,6 +16,7 @@ and matching tests pass; planned items remain labeled as planned.
 | 6 | Single-writer orchestration, state, lock, CLI | `F-ORC-*`, `F-CLI-*`, fault injection, reconciliation | Complete: full offline gate |
 | 7 | Arm64 image and Pi operations | container, arm64, restart, bind mount, resource, soak | Implementation complete; target gates pending |
 | 8 | Recruiter-facing proof | offline demo, worked example, claim audit | In progress: worked example shipped |
+| 9 | Cost-tiered screening and graded rewrites | Tier 0 eligibility, Tier 2 verdict cache, rewrite grader, bounded retry | Complete: [phase-9 traceability](traceability/phase-9.md) |
 
 ## Automatic submission is out of scope
 
@@ -27,7 +28,11 @@ The expensive, error-prone work is finding, screening, and tailoring, and that
 is what this automates. Submission is three minutes of human review per
 application, and keeping a human at that step is correct design.
 
-The project is complete at Phase 7 plus recruiter-facing proof.
+The project was complete at Phase 7 plus recruiter-facing proof. Phase 9 was
+added afterwards and out of order: running against the live snapshot showed the
+pipeline was correct but wasteful, and that the rewrite gate was strict without
+being discerning. It introduced no configuration and no dependencies, so every
+Phase 7 deployment document remains accurate.
 
 
 After Phase 2, the source transport was extended with a hardened shallow Git cache and

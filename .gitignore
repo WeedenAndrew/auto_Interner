@@ -82,4 +82,6 @@ commit-ready.ps1
 FINALISE.cmd
 DIAGNOSE-SMOKE.cmd
 smoke-log.txt
+GATE.cmd
+gate-pytest.txt
 HANDOFF-PROMPT.md
