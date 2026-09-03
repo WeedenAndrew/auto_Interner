@@ -1,5 +1,8 @@
 # Auto Interner
 
+[![Quality](https://github.com/WeedenAndrew/auto_Interner/actions/workflows/quality.yml/badge.svg)](https://github.com/WeedenAndrew/auto_Interner/actions/workflows/quality.yml)
+[![arm64](https://github.com/WeedenAndrew/auto_Interner/actions/workflows/arm64.yml/badge.svg)](https://github.com/WeedenAndrew/auto_Interner/actions/workflows/arm64.yml)
+
 **One person's internship pipeline, running unattended on a Raspberry Pi.**
 
 It finds listings you have not seen, screens the hard disqualifiers
@@ -255,8 +258,15 @@ in the [Raspberry Pi deployment runbook](docs/raspberry-pi.md).
 .\.venv\Scripts\python -m pytest --cov=auto_interner --cov-branch --cov-fail-under=85
 ```
 
-The GitHub Actions workflow is configured to run the same gate on Python 3.12 for
-Windows and Linux. The default suite makes no live network, browser, or model calls.
+GitHub Actions runs that same gate on Python 3.12 for Windows and Linux, and it
+passes on both. The default suite makes no live network, browser, or model calls.
+
+A second workflow runs on a **self-hosted arm64 runner — the deployment
+Raspberry Pi itself.** It runs the full suite under the same coverage gate on
+the target architecture, builds the arm64 image, asserts the container runs as
+UID 10001 rather than root, and executes the fixture and browser smokes. So the
+hardware this is meant to live on is verified by CI on every push, not by hand
+once.
 
 ## Repository guide
 
