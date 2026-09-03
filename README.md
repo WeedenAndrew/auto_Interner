@@ -1,7 +1,6 @@
 # Auto Interner
 
 [![Quality](https://github.com/WeedenAndrew/auto_Interner/actions/workflows/quality.yml/badge.svg)](https://github.com/WeedenAndrew/auto_Interner/actions/workflows/quality.yml)
-[![arm64](https://github.com/WeedenAndrew/auto_Interner/actions/workflows/arm64.yml/badge.svg)](https://github.com/WeedenAndrew/auto_Interner/actions/workflows/arm64.yml)
 
 **One person's internship pipeline, running unattended on a Raspberry Pi.**
 
